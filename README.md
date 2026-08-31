@@ -1,75 +1,48 @@
-![tests](https://github.com/Nyaenya-Devine/android-reset-lab/actions/workflows/tests.yml/badge.svg)
-# Android Reset Lab
-
-A safe, fully simulated security lab that models how a real device-management
-system identifies devices, authenticates users, authorizes actions, processes
-factory-reset requests with dual control, detects attacks, and keeps a
-tamper-evident audit log.
-
-**Nothing in this project touches a real device, file, or network.**
-See SECURITY.md for the full scope statement.
-
-## What it demonstrates
-
-- Salted password hashing (PBKDF2), session tokens, account lockout
-- Role-based access control with default deny
-- Dual-control (four-eyes) reset workflow with a simulation guard
-- Hash-chained JSON Lines audit log with integrity verification
-- Six attack detections with a measured detection rate
-- A self-audit test that bans destructive code from the codebase
-
-## Quick start
-
-    pip install pytest
-    python attacker_sim.py
-    python threat_detection.py
-    python reports.py
-    python -m pytest tests -q
-    python web_console.py        # then open http://127.0.0.1:8000
-
-## Roles
-
-| Role | Request reset | Approve reset | Manage users | View logs |
-|---|---|---|---|---|
-| viewer | no | no | no | no |
-| operator | yes | no | no | no |
-| admin | yes | yes | yes | no |
-| security_analyst | no | no | no | yes |
-
-## Detection results (latest labelled attack run)
-
-| Attack | Rule | Caught |
-|---|---|---|
-| Brute force | repeated LOGIN_FAILED per actor | yes |
-| Out-of-hours reset | timestamp outside 08:00-18:00 | yes |
-| Privilege escalation | ACCESS_DENIED events | yes |
-| Unknown device | request for device not in fleet | yes |
-| Replay | duplicated request id | yes |
-| Unapproved execute | RESET_BLOCKED by simulation guard | yes |
-
-Detection rate: 6/6, zero misses on the labelled run.
-
-## Standards mapping
-
-| Feature | Real-world equivalent | MITRE ATT&CK | NIST 800-53 |
-|---|---|---|---|
-| Salted hashing + lockout | IAM password policy | T1110 | IA-5, AC-7 |
-| Session tokens | SSO sessions | T1078 | IA-11 |
-| RBAC matrix | least privilege | T1134 | AC-3, AC-6 |
-| Dual control | separation of duties | T1531 | AC-5 |
-| Hash-chained log | signed / WORM audit storage | T1070 | AU-9 |
-| Six detections | SIEM correlation rules | various | SI-4 |
-| Dashboard and report | SOC triage reporting | - | AU-6 |
-| attacker_sim | purple-team exercise | - | CA-8 |
-| Device fleet | MDM inventory (Intune, Workspace ONE) | T1485 | CM-8 |
-
-## Architecture
-
-    login -> session token -> authorize(role, action)
-    request -> approve (second human) -> SIMULATED execute
-    every step -> hash-chained audit log -> detections -> dashboard
-
-## Disclaimer
-
-Educational simulation for defensive-security learning.
-No real device, account, file, or network is ever touched.
+Android Reset LabA safe, fully simulated cybersecurity lab demonstrating how a device-management system can protect sensitive factory-reset operations through authentication, authorization, dual control, attack detection, and tamper-evident auditing.Safety boundary: Nothing in this project touches a real device, account, file, or network. All device resets are simulated.What this project demonstratesAuthentication — salted PBKDF2 password hashing, session tokens, and account lockoutAuthorization — role-based access control with default-deny enforcementDual control — factory-reset requests require approval from a second authorized userSimulation guard — destructive operations cannot affect real devicesAudit logging — hash-chained JSON Lines logs with integrity verificationThreat detection — six simulated attack scenarios with measurable detection resultsSecurity testing — automated tests verify safety and workflow controlsReporting — detection metrics and a security dashboard for analysisSecurity workflowUser authentication
+        ↓
+Session token
+        ↓
+Role authorization
+        ↓
+Reset request
+        ↓
+Second-person approval
+        ↓
+SIMULATED execution
+        ↓
+Hash-chained audit log
+        ↓
+Threat detection
+        ↓
+Security dashboard
+Attack simulation resultsThe included attacker_sim.py generates controlled attack scenarios against the simulated environment. No real exploitation is performed.Attack scenarioDetection ruleResultBrute forceRepeated LOGIN_FAILED eventsDetectedOut-of-hours resetReset outside allowed hoursDetectedPrivilege escalationACCESS_DENIED eventsDetectedUnknown deviceDevice not present in fleetDetectedReplayDuplicate request IDDetectedUnapproved executionRESET_BLOCKED simulation guardDetectedLatest labelled run: 6/6 detections — 100% detection rate, zero misses.This result represents the included labelled test scenarios; it is not a claim of real-world detection coverage.Access-control modelRoleRequest resetApprove resetManage usersView logsViewerNoNoNoNoOperatorYesNoNoNoAdminYesYesYesNoSecurity AnalystNoNoNoYesThe reset workflow follows separation of duties: the person requesting a reset cannot approve their own request.Standards mappingFeatureSecurity conceptMITRE ATT&CKNIST SP 800-53Password hashing + lockoutAuthentication controlsT1110IA-5, AC-7Session tokensSession/authentication securityT1078IA-11RBACLeast privilegeT1134AC-3, AC-6Dual controlSeparation of duties—AC-5Hash-chained audit logAudit protectionT1070AU-9Threat detectionsSecurity monitoringVariousSI-4Dashboard/reportingAudit review—AU-6Attack simulatorSecurity assessment exercise—CA-8Device inventoryConfiguration management—CM-8Standards mappings are intended as educational references rather than claims of formal compliance.Project structureandroid-reset-lab/
+│
+├── authentication.py       # Password hashing and authentication
+├── authorization.py        # Role-based access control
+├── approve_helper.py       # Approval workflow helpers
+├── attacker_sim.py         # Controlled attack simulation
+├── config.py               # Lab configuration
+├── device_simulator.py     # Simulated device operations
+├── reset_workflow.py       # Reset request/approval workflow
+├── security_logger.py      # Hash-chained audit logging
+├── threat_detection.py     # Attack detection rules
+├── reports.py              # Security metrics and reports
+├── web_console.py          # Local demonstration console
+│
+├── tests/
+│   ├── test_safety.py      # Safety controls
+│   └── test_workflow.py    # Workflow tests
+│
+├── docs/                   # Supporting documentation
+├── SECURITY.md             # Security scope and safety boundary
+├── THREAT_MODEL.md         # Threat model
+└── INTERVIEW_PREP.md       # Project discussion/interview notes
+Generated local files such as data/, logs/, reports/, scratch/, Python caches, and pytest caches are intentionally excluded from version control.Quick startInstall the test dependency:pip install pytest
+Run the attack simulation:python attacker_sim.py
+Run threat detection:python threat_detection.py
+Generate reports:python reports.py
+Run the automated tests:python -m pytest tests -q
+Start the local demonstration console:python web_console.py
+Then open:http://127.0.0.1:8000
+The console is local-only and operates against the simulated environment.TestingThe project includes automated tests covering:destructive-operation safetyauthorization boundariesreset approval requirementsworkflow state transitionssimulation-only executionRun:python -m pytest tests -q
+LimitationsThis project is intentionally a simulation, not an Android management product.It does not:communicate with Android devicesexecute real factory resetsmodify real device storagecontact external servicesperform real-world exploitationprovide production-grade MDM functionalityThe purpose is to demonstrate defensive security concepts such as authentication, authorization, separation of duties, attack detection, logging, and security testing.DisclaimerEducational simulation for defensive-security learning.No real device, account, file, or network is ever touched.
