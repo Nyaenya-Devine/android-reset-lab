@@ -1,3 +1,4 @@
+![tests](https://github.com/Nyaenya-Devine/android-reset-lab/actions/workflows/tests.yml/badge.svg)
 # Android Reset Lab
 
 A safe, fully simulated security lab that models how a real device-management
