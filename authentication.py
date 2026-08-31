@@ -79,9 +79,54 @@ def unlock(username):
     return False
 
 
+SESSIONS_FILE = "data/sessions.json"
+
+
+def _load_sessions():
+    if not os.path.exists(SESSIONS_FILE):
+        return {}
+    with open(SESSIONS_FILE, "r") as f:
+        return json.load(f)
+
+
+def _save_sessions(sessions):
+    os.makedirs("data", exist_ok=True)
+    with open(SESSIONS_FILE, "w") as f:
+        json.dump(sessions, f, indent=2)
+
+
+def start_session(username):
+    """Issue a session token; the password is no longer needed."""
+    sessions = _load_sessions()
+    token = secrets.token_hex(16)
+    sessions[token] = {
+        "username": username,
+        "role": _load_users()[username]["role"],
+    }
+    _save_sessions(sessions)
+    return token
+
+
+def check_session(token):
+    """Who does this token belong to? None if invalid."""
+    return _load_sessions().get(token)
+
+
+def end_session(token):
+    sessions = _load_sessions()
+    if token in sessions:
+        del sessions[token]
+        _save_sessions(sessions)
+        return True
+    return False
+
+
 if __name__ == "__main__":
-    create_user("que", "LabRat!2026", "admin")
-    unlock("que")
-    for attempt in ["nope", "nope", "nope", "LabRat!2026"]:
-        ok, msg = login("que", attempt)
-        print(attempt, "->", ok, "|", msg)
+    ok, msg = login("que", "LabRat!2026")
+    print("login:", ok, "|", msg)
+    token = start_session("que")
+    print("token:", token[:8], "...")
+    print("session says:", check_session(token))
+    end_session(token)
+    print("after logout:", check_session(token))
+    
