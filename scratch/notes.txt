@@ -1,2 +1,0 @@
-Event: operator logged in
-Event: reset requested

@@ -1,1 +1,0 @@
-print("Android Reset Lab - simulation only.")
