@@ -138,11 +138,6 @@ def end_session(token):
 
 
 if __name__ == "__main__":
-    ok, msg = login("que", "LabRat!2026")
-    print("login:", ok, "|", msg)
-    token = start_session("que")
-    print("token:", token[:8], "...")
-    print("session says:", check_session(token))
-    end_session(token)
-    print("after logout:", check_session(token))
+    print("Authentication module loaded successfully.")
+    print("Use the application or test suite to exercise authentication.")
     
