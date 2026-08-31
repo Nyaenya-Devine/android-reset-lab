@@ -63,3 +63,11 @@ def test_approved_reset_wipes_simulated_device():
     ok, msg = reset_workflow.execute_reset(admin, rid)
     assert ok
     assert device_simulator.get_device("AND-004")["status"] == "wiped"
+def test_session_expires():
+    authentication.create_user("t_exp", "ExpPass!1", "viewer")
+    authentication.login("t_exp", "ExpPass!1")
+    token = authentication.start_session("t_exp")
+    sessions = authentication._load_sessions()
+    sessions[token]["created_at"] = "2020-01-01T00:00:00+00:00"
+    authentication._save_sessions(sessions)
+    assert authentication.check_session(token) is None

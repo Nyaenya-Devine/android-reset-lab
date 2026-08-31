@@ -4,3 +4,4 @@ SIMULATION_MODE = True        # must stay True: the lab never touches real devic
 LOG_FILE = "logs/security_log.jsonl"
 RESET_WINDOW = (8, 18)        # approved hours: 08:00-18:00
 MAX_FAILED_LOGINS = 3         # lockout threshold
+SESSION_TTL_MINUTES = 30      # sessions expire after 30 minutes

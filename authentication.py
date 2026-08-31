@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 import secrets
+from datetime import datetime, timezone
 
 import config
 
@@ -102,14 +103,29 @@ def start_session(username):
     sessions[token] = {
         "username": username,
         "role": _load_users()[username]["role"],
+        "created_at": datetime.now(timezone.utc).isoformat(),
     }
     _save_sessions(sessions)
     return token
 
 
+
 def check_session(token):
-    """Who does this token belong to? None if invalid."""
-    return _load_sessions().get(token)
+    """Who does this token belong to? None if invalid or expired."""
+    sessions = _load_sessions()
+    session = sessions.get(token)
+    if session is None:
+        return None
+    created = session.get("created_at")
+    if created is None:
+        return None
+    age = (datetime.now(timezone.utc) -
+           datetime.fromisoformat(created)).total_seconds() / 60
+    if age > config.SESSION_TTL_MINUTES:
+        del sessions[token]
+        _save_sessions(sessions)
+        return None
+    return session
 
 
 def end_session(token):
