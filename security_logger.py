@@ -22,11 +22,11 @@ def _last_hash():
 
 
 def log_event(event_type, actor, outcome, severity="INFO",
-              role="-", device_id="-", request_id="-"):
+                 role="-", device_id="-", request_id="-", timestamp=None):
     """Write one tamper-evident event to the audit log."""
     os.makedirs("logs", exist_ok=True)
     entry = {
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": timestamp or datetime.now(timezone.utc).isoformat(),
         "event_type": event_type,
         "severity": severity,
         "actor": actor,
