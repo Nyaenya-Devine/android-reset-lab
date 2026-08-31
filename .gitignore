@@ -1,10 +1,13 @@
-__pycache__/
-logs/
-data/
-reports/
 # Python cache
 __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
+
+# Local lab data
+data/
+logs/
+reports/
+
+# Personal learning files
 scratch/
