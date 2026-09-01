@@ -1,313 +1,272 @@
-# Android Reset Lab
+# 🛡️ Android Reset Lab — Secure Device Management Simulation
 
-A safe, fully simulated cybersecurity lab demonstrating how a device-management system can protect sensitive factory-reset operations through authentication, authorization, dual control, attack detection, and tamper-evident auditing.
+> **One-line pitch:** I built a simulation of an enterprise MDM reset system that *prevents* single-person abuse through authentication, dual-control approval, and tamper-evident audit logs — then proved it works by attacking it myself (6/6 attacks detected).
 
-**Safety boundary:** Nothing in this project touches a real device, account, file, or external network. All device resets are simulated.
-
-![Tests](https://github.com/Nyaenya-Devine/android-reset-lab/actions/workflows/tests.yml/badge.svg)
+[![Tests](https://github.com/Nyaenya-Devine/android-reset-lab/actions/workflows/tests.yml/badge.svg)](https://github.com/Nyaenya-Devine/android-reset-lab/actions)
 ![Python 3.11](https://img.shields.io/badge/python-3.11-blue)
-![Security: Simulation Only](https://img.shields.io/badge/security-simulation--only-green)
+![Tests](https://img.shields.io/badge/tests-28%20passed-brightgreen)
+![Detection](https://img.shields.io/badge/detection-6%2F6%20(100%25)-green)
+![Security](https://img.shields.io/badge/security-simulation--only-green)
+[![Release](https://img.shields.io/github/v/release/Nyaenya-Devine/android-reset-lab?label=release)](https://github.com/Nyaenya-Devine/android-reset-lab/releases/tag/v2.0)
+
+**🎥 Demo Video:** [Download v2.0 Demo (3.9MB)](https://github.com/Nyaenya-Devine/android-reset-lab/releases/download/v2.0/android-reset-lab-demo.mp4) | **📊 Dashboard:** Below
 
 ![Dashboard](dashboard.png)
 
-## What This Project Demonstrates
+---
 
-- **Authentication** - salted PBKDF2 password hashing with constant-time compare, session tokens, session expiration, account lockout with generic messages to prevent enumeration
-- **Authorization** - role-based access control (RBAC) with default-deny enforcement and role whitelist
-- **Dual control** - reset requests require approval from a second authorized user (four-eyes)
-- **Simulation guard** - reset operations cannot affect real devices
-- **Audit logging** - hash-chained JSON Lines logs with integrity verification and timestamp spoofing protection
-- **Threat detection** - six simulated attack scenarios with measurable detection results
-- **Security testing** - automated tests verify safety and workflow controls
-- **Reporting** - detection metrics and security analysis
+## 👩‍💼 For Recruiters — 30 Second Summary
 
-## Security Workflow
+**What is this?** A Python-only lab that simulates how companies like banks safely wipe lost/stolen phones. No real devices are touched — everything is fake data.
 
+**Business problem solved:** Without controls, one compromised IT account can wipe all company phones. This lab enforces:
+- **No single person can wipe a device** — needs 2 different humans (four-eyes)
+- **No brute force** — account locks for 15 min after 3 fails, with auto-unlock
+- **No secret tampering** — audit log is hash-chained; if someone edits it, verification breaks at exact line
+- **No after-hours abuse** — resets outside 8am-6pm are flagged
+- **No fake devices** — unknown device IDs are blocked
+
+**Result:** I attacked my own system with 6 techniques (brute force, privilege escalation, replay, etc.) and my detection caught **6/6 with 9 precise alerts** (was 14 with false positives before hardening).
+
+**Why hire me?** This shows I think like both attacker and defender, write tests for security controls, and clean up security bugs (fixed 15 issues: timing attacks, enumeration, XSS, actor logging bugs, etc.)
+
+**Tech in 10 seconds:** Python stdlib only, PBKDF2 + salt + `hmac.compare_digest`, RBAC default-deny, session TTL, IP rate limiting, hash-chained JSONL logs, pytest with isolated tmp_path fixtures.
+
+---
+
+## 🎯 Key Achievements (Metrics)
+
+| Metric | Before Hardening | After P0+P1 Hardening |
+|--------|------------------|------------------------|
+| **Tests** | 18 | **28** (+5 detection, +3 security) |
+| **Detection** | 6/6 but 14 alerts (5 false out-of-hours, replay double-counted) | **6/6 with 9 alerts** (1:1 mapping, precise) |
+| **Critical bugs** | 8 (actor logged as approver not executor, enumeration, timing attack, XSS, etc.) | **0 — all fixed with regression tests** |
+| **Lockout** | Permanent DoS | **15 min auto-unlock** |
+| **Rate limiting** | None | **10 req/60s IP-based, returns 429** |
+| **Repo hygiene** | 3.9MB video in git, broken CI | **73KB repo, video as release asset, proper CI** |
+
+---
+
+## 🧠 Skills This Proves (Mapped to Job Descriptions)
+
+**For SOC Analyst / Detection Engineer roles:**
+- ✅ Wrote 6 detection rules (brute force with sliding time window, replay only 2nd occurrence, out-of-hours filtering)
+- ✅ Reduced false positives 14 → 9 by fixing timestamp handling
+- ✅ Built dashboard and JSON metrics
+
+**For AppSec / Security Engineer roles:**
+- ✅ Fixed OWASP-style bugs: user enumeration (generic messages), timing attack (`compare_digest`), XSS (`html.escape`), password echo (`getpass`)
+- ✅ Implemented secure password storage (PBKDF2 100k + salt), role whitelist, password strength, session expiry
+- ✅ Tamper-evident logging with hash chain verification
+
+**For Python / Backend roles:**
+- ✅ Stdlib-only, no dependencies except pytest
+- ✅ Isolated tests with `tmp_path` + `monkeypatch` (no state leakage, fixed deepcopy bug)
+- ✅ Clean architecture: auth → RBAC → workflow → audit → detection → reporting
+
+**Standards:** Mapped to MITRE ATT&CK (T1110, T1078, T1134, T1070) and NIST 800-53 (IA-5, AC-7, AC-3, AC-5, AU-9, SI-4)
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+flowchart TD
+    A[User Login] --> B{PBKDF2 + Salt + compare_digest}
+    B -->|Fail| C[Increment failed, lock 15m after 3]
+    B -->|Success| D[Session Token 128-bit TTL 30m]
+    D --> E{RBAC Check default-deny}
+    E -->|Deny| F[ACCESS_DENIED logged]
+    E -->|Allow| G[Request Reset - Validate Device in Fleet]
+    G --> H[Unique Request ID + Four-Eyes Check]
+    H --> I{Second Admin Approves? requester != approver}
+    I -->|No| J[APPROVAL_DENIED]
+    I -->|Yes| K[SIMULATED Wipe - status field only]
+    K --> L[Hash-Chained Audit Log prev_hash + entry_hash]
+    L --> M[Threat Detection 6 Rules Time-Windowed]
+    M --> N[Dashboard + Metrics]
 ```
-User authentication
-       |
-       v
-Session token (128-bit, TTL 30m)
-       |
-       v
-Role authorization (default-deny)
-       |
-       v
-Reset request (unique ID, device validation)
-       |
-       v
-Second-person approval (requester != approver)
-       |
-       v
-SIMULATED execution (status field only)
-       |
-       v
-Hash-chained audit log
-       |
-       v
-Threat detection
-       |
-       v
-Security reporting
+
+**Data flow is 100% simulated:** `data/devices.json` status changes from `active` → `wiped`, never touches real hardware.
+
+---
+
+## ⚡ 30-Second Quick Start (For Recruiters to Try)
+
+```bash
+git clone https://github.com/Nyaenya-Devine/android-reset-lab.git
+cd android-reset-lab
+pip install -r requirements.txt
+python seed_lab.py          # creates 3 fake users: que/admin, ops/operator, analyst
+python attacker_sim.py      # fires 6 attacks into logs/security_log.jsonl
+python threat_detection.py  # prints 6/6 detection
+python reports.py           # prints dashboard
+pytest -q                   # 28 passed
+python web_console.py       # open http://127.0.0.1:8000 - try requesting reset
 ```
 
-## Attack Simulation Results
+**Login for demo:** user `ops` / pass `OpsOps!123` (simulation-only, from `seed_lab.py`, override via `LAB_OPS_PASS` env var)
 
-The included `attacker_sim.py` generates six controlled attack scenarios against the simulated environment. No real exploitation is performed.
+---
 
-| Attack Scenario | Detection Rule | Result |
-|-----------------|----------------|--------|
-| Brute force | Repeated LOGIN_FAILED events | Detected |
-| Out-of-hours reset | Reset outside allowed hours | Detected |
-| Privilege escalation | ACCESS_DENIED events | Detected |
-| Unknown device | Device not present in fleet | Detected |
-| Replay | Duplicate request ID | Detected |
-| Unapproved execution | RESET_BLOCKED simulation guard | Detected |
+## 🎬 Demo Walkthrough (60 sec to say in interview)
 
-**Latest Verified Result:** Detection rate: 6/6 (100%) — This represents the six labelled scenarios included in the laboratory. It is not a claim of real-world detection coverage.
+1. "This is simulation-only MDM reset lab — no real devices" (show README + SECURITY.md)
+2. Run `attacker_sim.py` — "6 simulated attacks fire into hash-chained log, DAY=10:00 within window, NIGHT=03:00 outside"
+3. Run `threat_detection.py` — "6 rules catch all 6, now 9 precise alerts not 14"
+4. Run `reports.py` — "Dashboard: severities, detection 6/6, log INTACT"
+5. Edit one log word, run `security_logger.py verify` — "Chain breaks at line X, undo, INTACT"
+6. "Every reset needs 2 different humans; test proves executor is logged correctly, not approver (was bug)"
 
-## Access-Control Model
+---
 
-| Role | Request Reset | Approve Reset | Manage Users | View Logs |
-|------|---------------|---------------|--------------|-----------|
-| Viewer | No | No | No | No |
-| Operator | Yes | No | No | No |
-| Admin | Yes | Yes | Yes | No |
-| Security Analyst | No | No | No | Yes |
+## 🔍 Attack Simulation Results
 
-The reset workflow follows separation of duties: the person requesting a reset cannot approve their own request.
+| Attack | How Simulated | Detection Rule | Result |
+|--------|---------------|----------------|--------|
+| Brute force | 4 wrong passwords for ops | `LOGIN_FAILED` count ≥3 within 10 min sliding window | ✅ 4 events flagged |
+| Out-of-hours | Reset at 03:00 NIGHT | `RESET_REQUESTED` hour not in 8-18 and outcome=created | ✅ 1 flagged (was 5 false) |
+| Privilege escalation | Operator tries approve | `ACCESS_DENIED` | ✅ |
+| Unknown device | Request AND-999 | Device not in FLEET set | ✅ |
+| Replay | Same request ID twice | Only 2nd occurrence flagged (was both) | ✅ 1 flagged (was 2) |
+| Unapproved execute | Execute without approval | `RESET_BLOCKED` | ✅ |
 
-## Tamper-Evident Audit Logging
+**Verified:** 6/6 categories, 9 total alerts (precise), log integrity INTACT.
 
-The security logger maintains a hash-chained JSON Lines audit log.
+---
 
-Each event contains:
-- `prev_hash` - hash of the previous event
-- `entry_hash` - SHA-256 hash of the current event
-- Timestamp, Event type, Severity, Actor, Device ID, Request ID, Outcome
+## 🔐 Access Control
 
-If an existing event is modified, the calculated hash no longer matches the stored hash and the chain-integrity check detects the modification.
+| Role | Request | Approve | Manage Users | View Logs |
+|------|---------|---------|--------------|-----------|
+| Viewer | ❌ | ❌ | ❌ | ❌ |
+| Operator | ✅ | ❌ | ❌ | ❌ |
+| Admin | ✅ | ✅ | ✅ | ❌ |
+| Security Analyst | ❌ | ❌ | ❌ | ✅ |
 
-This is an educational tamper-evident mechanism and should not be considered equivalent to cryptographic signing, immutable enterprise logging, or a production SIEM.
+Separation of duties: requester ≠ approver enforced in code + tested.
 
-## Red-Team / Blue-Team Design
+---
 
-**Red Team** `attacker_sim.py` generates controlled scenarios representing:
-- Brute-force authentication attempts
-- Out-of-hours reset activity
-- Privilege escalation
-- Requests against unknown devices
-- Replay of a reset request
-- Attempted execution without approval
+## 🛡️ Safety Boundary (Important for Recruiters)
 
-**Blue Team** `threat_detection.py` analyzes the audit log and identifies the corresponding indicators.
-
-## Simulated Android Fleet
-
-`device_simulator.py` contains a fictional device inventory.
-
-Example devices: AND-001 - Pixel 7, AND-003 - Pixel 6a, AND-006 - Galaxy A54
-
-These are simulated records only. The project does not:
-- Connect to Android devices
-- Use ADB
-- Execute factory-reset commands
-- Modify real device storage
-- Communicate with real device-management services
-
-A simulated reset only changes the status of a fictional device record.
-
-## Safety Model
-
-Safety is a core design requirement.
-
-The project uses:
 ```python
-SIMULATION_MODE = True
+SIMULATION_MODE = True  # enforced by test
 ```
 
-The laboratory also includes automated safety tests that inspect Python source code for prohibited destructive operations.
+This project **never**:
+- Touches real Android devices / ADB / MDM APIs
+- Executes real wipe commands
+- Deletes real files (writes only to `data/`, `logs/`, `reports/`)
+- Contacts external networks
 
-The project deliberately avoids:
-- Real device wiping
-- Real factory-reset commands
-- ADB-based device control
-- Shell execution
-- Destructive filesystem operations
-- External device-management APIs
+Safety tests (`test_safety.py`) AST-scan for banned calls (`subprocess`, `os.remove`, `eval`, etc.)
 
-## Automated Testing
+See `SECURITY.md` and `THREAT_MODEL.md` for full scope.
 
-The project includes automated tests covering:
-- Authentication (password rejection with generic messages, time-based lockout with auto-unlock, constant-time compare, password strength, role whitelist)
-- Session creation, expiration, invalidation
-- RBAC permissions, default-deny
-- Reset approval, four-eyes enforcement, correct audit actor logging
-- Unknown-device rejection, operator restrictions
-- Simulated reset execution
-- Audit-log integrity
-- Threat detection (replay only second occurrence, brute force time window, unknown device fleet check, rate limiting)
-- Safety controls
+---
 
-Current verified result: **28 passed**
+## 📁 Project Structure (Recruiter-Friendly)
 
-Run the tests with:
+```
+├── authentication.py       # PBKDF2 + hmac.compare_digest, 15m lockout with auto-unlock
+├── authorization.py        # RBAC default-deny + role whitelist
+├── seed_lab.py             # Centralized seeding, env var override for creds
+├── reset_workflow.py       # Four-eyes workflow, fixed actor logging, idempotency
+├── security_logger.py      # Hash-chained JSONL, timestamp spoof protection
+├── threat_detection.py     # P1: time-windowed, replay only 2nd+, filtered
+├── web_console.py          # Loopback only, XSS fixed, IP rate limiting 10/60s
+├── device_simulator.py     # Fake fleet AND-001..006, deepcopy fix
+├── attacker_sim.py         # Red team with DAY/NIGHT controlled timestamps
+├── tests/
+│   ├── conftest.py         # Isolated tmp_path fixtures (professional)
+│   ├── test_workflow.py    # 21 tests: auth, RBAC, dual-control, lockout auto-unlock
+│   ├── test_detection.py   # 5 tests: replay, brute force window, rate limiting
+│   └── test_safety.py      # 2 tests: no destructive calls, SIMULATION_MODE
+├── dashboard.png           # Screenshot (no spaces, 44KB)
+└── .github/workflows/tests.yml  # CI runs pytest + attack sim + verify
+```
+
+---
+
+## 🧪 Testing
+
 ```bash
 pip install -r requirements.txt
-python -m pytest tests -q
+pytest -v  # 28 passed
+
+# What tests prove:
+# - Wrong password → "invalid credentials" (not "unknown user") — prevents enumeration
+# - 3 fails → locked for 15m, auto-unlocks after time
+# - Session expires after 30m, logout invalidates
+# - Operator cannot approve, viewer cannot request
+# - Self-approval blocked, execute without approval blocked
+# - Device already wiped → blocked (idempotency)
+# - Audit log tampering detected at exact line
+# - Replay only 2nd occurrence flagged
+# - Rate limiting blocks after 10 req/60s
 ```
 
-## Project Structure
+---
 
-```
-android-reset-lab/
-|-- authentication.py       # Password hashing (PBKDF2 + hmac.compare_digest), time-based lockout with auto-unlock, role whitelist
-|-- authorization.py        # Role-based access control
-|-- seed_lab.py             # Centralized simulation seeding (env var override)
-|-- approve_helper.py       # Approval workflow helpers (getpass + validation)
-|-- attacker_sim.py         # Controlled attack simulation (P1: DAY/NIGHT timestamps for clean detection)
-|-- config.py               # Lab configuration (P1: lockout duration, rate limit, brute force window)
-|-- device_simulator.py     # Simulated device operations (P1: deepcopy fix)
-|-- reset_workflow.py       # Reset request/approval workflow (fixed actor logging + idempotency)
-|-- security_logger.py      # Hash-chained audit logging (timestamp spoof protection + corrupted log handling)
-|-- threat_detection.py     # Attack detection rules (P1: time-windowed brute force, replay only 2nd+, filtered out_of_hours)
-|-- reports.py              # Security metrics and reports (P1: makedirs + capped bars)
-|-- web_console.py          # Local demonstration console (P1: XSS fixed + rate limiting + security headers)
-|-- tests/
-|   |-- conftest.py         # Test-state isolation
-|   |-- test_safety.py      # Safety controls
-|   |-- test_workflow.py    # Workflow and security tests (P1: lockout auto-unlock, password strength)
-|   `-- test_detection.py   # P1: Detection and rate limiting tests
-|-- .github/workflows/tests.yml
-|-- dashboard.png           # Dashboard screenshot
-|-- SECURITY.md
-|-- THREAT_MODEL.md
-|-- INTERVIEW_PREP.md
-|-- requirements.txt
-|-- LICENSE
-```
+## 📚 Standards Mapping (Educational, not certified)
 
-Generated local files such as data/, logs/, reports/, scratch/, Python caches, and pytest caches are intentionally excluded from version control. Large video demos are excluded via .gitignore — upload to releases or external link.
+| Feature | MITRE ATT&CK | NIST 800-53 |
+|---------|--------------|-------------|
+| Password hashing + lockout | T1110 Brute Force | IA-5, AC-7 |
+| Session tokens | T1078 Valid Accounts | IA-11 |
+| RBAC | T1134 Access Token Manipulation | AC-3, AC-6 |
+| Dual control | — | AC-5 Separation of Duties |
+| Hash-chained log | T1070 Indicator Removal | AU-9 Protection |
+| Threat detection | Various | SI-4 Monitoring |
+| Rate limiting | — | SC-5 Denial of Service Protection |
 
-## Quick Start
+---
 
-Install dependencies:
+## 🚀 What I Fixed (P0+P1) — Shows Growth
+
+**P0 (Critical bugs found in initial review):**
+- Actor logged as approver not executor → fixed + regression test
+- User enumeration + timing attack → generic messages + `compare_digest`
+- XSS, password echo, reports crash, timestamp spoofing → fixed
+- 3.9MB video in git → moved to release asset, repo 73KB
+
+**P1 (Hardening to reduce false positives):**
+- Permanent lockout → 15m auto-unlock with `locked_until`
+- No rate limiting → IP sliding window 10/60s
+- Detection 14 alerts with false positives → 9 precise alerts (1:1)
+- Controlled timestamps DAY/NIGHT for deterministic results
+
+---
+
+## 📦 Release
+
+**Latest:** [v2.0](https://github.com/Nyaenya-Devine/android-reset-lab/releases/tag/v2.0) — Includes demo video as asset:
+- [android-reset-lab-demo.mp4](https://github.com/Nyaenya-Devine/android-reset-lab/releases/download/v2.0/android-reset-lab-demo.mp4)
+
+**Install:**
 ```bash
 pip install -r requirements.txt
-```
-
-Seed the lab (uses env vars if set, otherwise simulation defaults):
-```bash
 python seed_lab.py
-# Or set: LAB_ADMIN_PASS, LAB_OPS_PASS, LAB_ANALYST_PASS
+python attacker_sim.py && python threat_detection.py && python reports.py
 ```
 
-Run the simulated attack scenarios:
-```bash
-python attacker_sim.py
-```
+---
 
-Run threat detection:
-```bash
-python threat_detection.py
-```
+## 👤 Author & Contact
 
-Generate reports:
-```bash
-python reports.py
-```
+**Nyaenya-Devine** — Defensive Security / Python / Detection Engineering
 
-Run the automated tests:
-```bash
-python -m pytest tests -q
-```
+- GitHub: [@Nyaenya-Devine](https://github.com/Nyaenya-Devine)
+- Project: [android-reset-lab](https://github.com/Nyaenya-Devine/android-reset-lab)
+- Focus: Secure-by-design, testing security controls, red/blue team simulation
 
-Start the local demonstration console:
-```bash
-python web_console.py
-```
-Then open: http://127.0.0.1:8000
+**Open to:** SOC Analyst, Detection Engineer, AppSec Engineer, Security Engineer (Junior) roles in Nairobi / Remote
 
-The console is local-only and operates against the simulated environment.
+---
 
-## Security Concepts Demonstrated
+## 📄 License & Ethics
 
-- Python security engineering
-- Authentication, Password hashing (PBKDF2 100k + salt + constant-time), Session security, Time-based lockout with auto-unlock
-- Role-Based Access Control, Least privilege, Separation of duties, Role whitelist
-- Security logging, Hash chaining, Timestamp spoof protection, Corrupted log handling
-- Threat detection (time-windowed, replay only 2nd occurrence, filtered false positives), Red-team simulation, Blue-team monitoring
-- Rate limiting (web console IP-based), Automated security testing, Secure-by-design development
-- User enumeration prevention, XSS prevention, Audit actor correctness, Password strength enforcement
+MIT License — See `LICENSE`. This is **simulation-only** for education. All attacks run against fake local data. Real MDM belongs on authorized platforms under organizational policy and law.
 
-## Standards Mapping
-
-Educational references, not claims of formal compliance.
-
-| Feature | Security Concept | MITRE ATT&CK | NIST SP 800-53 |
-|---------|------------------|--------------|----------------|
-| Password hashing and lockout | Authentication controls | T1110 | IA-5, AC-7 |
-| Session tokens | Authentication/session security | T1078 | IA-11 |
-| RBAC | Least privilege | T1134 | AC-3, AC-6 |
-| Dual control | Separation of duties | - | AC-5 |
-| Hash-chained audit log | Audit protection | T1070 | AU-9 |
-| Threat detection | Security monitoring | Various | SI-4 |
-| Reporting | Audit review | - | AU-6 |
-| Attack simulator | Security assessment exercise | - | CA-8 |
-| Device inventory | Configuration management | - | CM-8 |
-
-## Limitations
-
-This project is intentionally a simulation, not an Android management product. It does not communicate with Android devices, execute real factory resets, modify real device storage, contact external services, perform real-world exploitation, or provide production-grade MDM functionality.
-
-## Ethical and Safety Notice
-
-This project is intended for authorized educational and defensive cybersecurity learning. All attack scenarios operate against a fictional local environment. No real device, account, or external system is targeted.
-
-## Future Defensive Improvements
-
-- MFA simulation (TOTP)
-- Argon2 option (memory-hard hashing)
-- SIEM integration simulation (JSON syslog)
-- CSV/PDF security reports
-- Expanded threat modelling
-- Improved audit-log storage (WORM simulation)
-
-The project should remain simulation-only.
-
-## Recent Fixes
-
-### P1 Hardening (Current)
-- **Time-based lockout**: `LOCKOUT_DURATION_MINUTES=15` with auto-unlock, `locked_until` field, remaining time in message
-- **Rate limiting**: IP-based sliding window in web console (`RATE_LIMIT_REQUESTS=10` per 60s), returns 429
-- **Threat detection improved**: 
-  - Brute force now time-windowed (10 min window), sliding window check
-  - Replay only flags second+ occurrence (was flagging both)
-  - Out-of-hours now filters denied requests and uses controlled DAY/NIGHT timestamps (was 5 false positives → 1 true)
-  - Unknown device uses fleet validation, not just string match
-  - Total alerts: 14 → 9 with 1:1 mapping to attacks
-- **Attacker sim**: Uses DAY=10:00 (within window) for clean events, NIGHT=03:00 only for out_of_hours attack
-- **Password strength & role whitelist**: Enforced in `create_user`
-- **Deepcopy fix**: `device_simulator` now uses `deepcopy(FLEET)` to prevent global mutation
-- **Tests**: 20 → 28 with new `test_detection.py` (replay, brute force window, unknown device, rate limiting)
-
-### P0 Hardening (Previous)
-- Fixed audit log actor bug: `execute_reset` now logs executor, not approver
-- Fixed unknown device actor bug: logs actual actor, not "unknown"
-- Fixed user enumeration: generic "invalid credentials" message
-- Fixed timing attack: `hmac.compare_digest` for password hashes
-- Fixed XSS in web console: HTML escaping + security headers
-- Fixed password echo: `getpass` in approve helper
-- Fixed reports crash: `makedirs` for reports folder
-- Fixed timestamp spoofing: `_allow_custom_timestamp` flag
-- Centralized seeding in `seed_lab.py` with env var override
-- Removed large binaries from git (video), renamed screenshot to `dashboard.png`
-- Added `requirements.txt`, `LICENSE`, proper CI workflow
-- Fixed duplicate tests, added regression test for actor logging
-
-## Portfolio Summary
-
-Android Reset Lab demonstrates practical defensive cybersecurity engineering by combining authentication (with time-based lockout), RBAC, separation of duties, rate limiting, secure workflow design, tamper-evident auditing, attack simulation with precise timestamps, threat detection with reduced false positives, and automated security testing in a controlled environment.
-
-Verified laboratory results: **28 automated tests passing** and **6/6 simulated attack categories detected** with **9 total alerts (1:1 mapping, down from 14)**.
-
+**Verified:** 28 tests passing, 6/6 detection, log INTACT, 9 precise alerts.
