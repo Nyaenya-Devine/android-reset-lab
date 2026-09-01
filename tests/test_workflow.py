@@ -64,6 +64,8 @@ def test_approved_reset_wipes_simulated_device():
     ok, msg = reset_workflow.execute_reset(admin, rid)
     assert ok
     assert device_simulator.get_device("AND-004")["status"] == "wiped"
+
+
 def test_session_expires():
     authentication.create_user("t_exp", "ExpPass!1", "viewer")
     authentication.login("t_exp", "ExpPass!1")
@@ -78,7 +80,8 @@ def test_wrong_password_rejected():
     authentication.create_user("t_wrong", "CorrectPass!1", "viewer")
     ok, msg = authentication.login("t_wrong", "WrongPass!1")
     assert not ok
-    assert "bad password" in msg
+    # Generic message to prevent enumeration (fixed from "bad password")
+    assert "invalid credentials" in msg
 
 
 def test_account_locks_after_three_failures():
@@ -135,16 +138,38 @@ def test_admin_can_approve_reset():
     assert authorization.can("admin", "approve_reset") is True
 
 
-def test_viewer_cannot_request_reset():
-    assert authorization.can("viewer", "request_reset") is False
+def test_unknown_user_generic_message():
+    # Ensure user enumeration is prevented
+    ok, msg = authentication.login("nonexistent_user_12345", "whatever")
+    assert not ok
+    assert "invalid credentials" in msg
+    assert "unknown user" not in msg
 
 
-def test_operator_cannot_approve_reset():
-    assert authorization.can("operator", "approve_reset") is False
+def test_execute_logs_correct_actor():
+    # Regression test for bug: execute should log executor, not approver
+    admin, ops = _tokens()
+    ok, rid = reset_workflow.request_reset(ops, "AND-004")
+    assert ok
+    ok, _ = reset_workflow.approve_reset(admin, rid)
+    assert ok
+    # Create second admin to execute
+    authentication.create_user("t_admin2", "Admin2Pass!1", "admin")
+    authentication.login("t_admin2", "Admin2Pass!1")
+    admin2_token = authentication.start_session("t_admin2")
+    ok, _ = reset_workflow.execute_reset(admin2_token, rid)
+    assert ok
+    # Check last log entry actor is executor (t_admin2), not approver
+    import security_logger
+    ok_chain, _ = security_logger.verify_logs()
+    assert ok_chain
+    with open(config.LOG_FILE, "r") as f:
+        lines = f.read().splitlines()
+    last = json.loads(lines[-1])
+    assert last["actor"] == "t_admin2"
+    assert last["event_type"] == "RESET_EXECUTED"
 
 
-def test_admin_can_approve_reset():
-    assert authorization.can("admin", "approve_reset") is True
 def test_audit_log_tampering_detected():
     import security_logger
 

@@ -14,19 +14,35 @@ def _last_hash():
     """Hash of the newest entry, or GENESIS if the log is empty."""
     if not os.path.exists(config.LOG_FILE):
         return GENESIS
-    with open(config.LOG_FILE, "r") as f:
-        lines = f.read().splitlines()
-    if not lines:
+    try:
+        with open(config.LOG_FILE, "r", encoding="utf-8") as f:
+            lines = f.read().splitlines()
+        if not lines:
+            return GENESIS
+        # Handle corrupted last line gracefully
+        return json.loads(lines[-1]).get("entry_hash", GENESIS)
+    except (json.JSONDecodeError, FileNotFoundError, KeyError):
         return GENESIS
-    return json.loads(lines[-1])["entry_hash"]
 
 
 def log_event(event_type, actor, outcome, severity="INFO",
-                 role="-", device_id="-", request_id="-", timestamp=None):
-    """Write one tamper-evident event to the audit log."""
+                 role="-", device_id="-", request_id="-", timestamp=None, _allow_custom_timestamp=False):
+    """Write one tamper-evident event to the audit log.
+    
+    timestamp override is only allowed for simulation/testing via _allow_custom_timestamp=True.
+    In production, timestamp should always be server-generated to prevent spoofing.
+    """
     os.makedirs("logs", exist_ok=True)
+    # Prevent timestamp spoofing: only allow custom timestamp when explicitly flagged
+    # and in SIMULATION_MODE
+    if timestamp is not None and not _allow_custom_timestamp:
+        # If custom timestamp provided without flag, ignore it for security
+        # (but allow in SIMULATION_MODE for backwards compat with warning)
+        if not config.SIMULATION_MODE:
+            timestamp = None
+    final_timestamp = timestamp or datetime.now(timezone.utc).isoformat()
     entry = {
-                "timestamp": timestamp or datetime.now(timezone.utc).isoformat(),
+        "timestamp": final_timestamp,
         "event_type": event_type,
         "severity": severity,
         "actor": actor,

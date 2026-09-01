@@ -7,6 +7,7 @@ import authorization
 import device_simulator
 import reset_workflow
 import security_logger
+import seed_lab
 
 NIGHT = "2026-08-31T03:00:00+00:00"
 
@@ -31,6 +32,7 @@ def attack_brute_force():
 
 
 def attack_out_of_hours():
+    # This attack simulates timestamp spoofing - explicitly flagged as simulation
     security_logger.log_event(
         "RESET_REQUESTED",
         "attacker",
@@ -38,6 +40,7 @@ def attack_out_of_hours():
         device_id="AND-001",
         request_id="ATK-2",
         timestamp=NIGHT,
+        _allow_custom_timestamp=True,
     )
 
 
@@ -57,6 +60,7 @@ def attack_unknown_device(token):
 
 
 def attack_replay():
+    # Replay attack - same request_id twice (second should be flagged)
     security_logger.log_event(
         "RESET_REQUESTED",
         "attacker",
@@ -82,16 +86,15 @@ def attack_unapproved_execute(admin_token, ops_token):
 if __name__ == "__main__":
     reset_simulated_log()
 
-    device_simulator.seed_devices()
+    # Use centralized seeding (env var override supported)
+    seed_lab.seed_all()
 
-    authentication.create_user("que", "LabRat!2026", "admin")
-    authentication.create_user("ops", "OpsOps!123", "operator")
+    admin_token = seed_lab.get_default_token("que")
+    ops_token = seed_lab.get_default_token("ops")
 
-    authentication.login("que", "LabRat!2026")
-    admin_token = authentication.start_session("que")
-
-    authentication.login("ops", "OpsOps!123")
-    ops_token = authentication.start_session("ops")
+    if not admin_token or not ops_token:
+        print("Failed to seed tokens. Check users.")
+        exit(1)
 
     attack_brute_force()
     attack_out_of_hours()
@@ -101,3 +104,4 @@ if __name__ == "__main__":
     attack_unapproved_execute(admin_token, ops_token)
 
     print("6 attacks fired into the log.")
+    print("Note: Credentials used are SIMULATION-ONLY defaults from seed_lab.py")

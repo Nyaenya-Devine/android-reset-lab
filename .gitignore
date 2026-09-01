@@ -3,11 +3,41 @@ __pycache__/
 *.pyc
 *.pyo
 .pytest_cache/
+*.egg-info/
 
-# Local lab data
+# Local lab data (generated at runtime)
 data/
 logs/
 reports/
 
 # Personal learning files
 scratch/
+
+# Large binary assets - should not be in git, use releases or external links
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.zip
+*.tar.gz
+
+# Environment and secrets
+.env
+.env.local
+venv/
+.venv/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Keep dashboard screenshot but ignore other screenshots with spaces
+# Screenshot with spaces is deprecated, use dashboard.png
+Screenshot *.png
+

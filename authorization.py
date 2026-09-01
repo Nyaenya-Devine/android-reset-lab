@@ -27,12 +27,10 @@ def authorize(token, action):
 
 
 if __name__ == "__main__":
-    authentication.create_user("que", "LabRat!2026", "admin")
-    authentication.create_user("ops", "OpsOps!123", "operator")
-    authentication.login("que", "LabRat!2026")
-    admin_token = authentication.start_session("que")
-    authentication.login("ops", "OpsOps!123")
-    ops_token = authentication.start_session("ops")
+    import seed_lab
+    seed_lab.seed_all()
+    admin_token = seed_lab.get_default_token("que")
+    ops_token = seed_lab.get_default_token("ops")
 
     print("admin approve_reset:", authorize(admin_token, "approve_reset"))
     print("operator approve_reset:", authorize(ops_token, "approve_reset"))
@@ -41,3 +39,4 @@ if __name__ == "__main__":
     for role in PERMISSIONS:
         print(role, "may approve_reset:", can(role, "approve_reset"))
     print("ghost role:", can("intern", "view_dashboard"))
+    print("Note: Using seed_lab.py for simulation credentials")

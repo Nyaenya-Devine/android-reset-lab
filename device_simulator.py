@@ -1,4 +1,5 @@
 # device_simulator.py - the fictional Android fleet (nothing real)
+import copy
 import json
 import os
 
@@ -17,7 +18,8 @@ FLEET = {
 def seed_devices():
     """Create the fleet file once. Never overwrites an existing fleet."""
     if not os.path.exists(DEVICES_FILE):
-        save_devices(dict(FLEET))
+        # Deep copy to avoid mutating global FLEET
+        save_devices(copy.deepcopy(FLEET))
         return True
     return False
 
@@ -30,7 +32,8 @@ def save_devices(devices):
 
 def load_devices():
     if not os.path.exists(DEVICES_FILE):
-        return dict(FLEET)
+        # Deep copy to prevent shallow-copy bug where inner dicts are shared
+        return copy.deepcopy(FLEET)
     with open(DEVICES_FILE, "r") as f:
         return json.load(f)
 

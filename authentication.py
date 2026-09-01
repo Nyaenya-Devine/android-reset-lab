@@ -1,5 +1,6 @@
 # authentication.py - salted hashing, login, lockout
 import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -9,6 +10,8 @@ import config
 
 USERS_FILE = "data/users.json"
 ITERATIONS = 100_000
+# Allowed roles - prevents arbitrary role injection
+ALLOWED_ROLES = {"viewer", "operator", "admin", "security_analyst"}
 
 
 def _load_users():
@@ -31,6 +34,11 @@ def _hash_password(password, salt_hex):
 
 
 def create_user(username, password, role="viewer"):
+    if role not in ALLOWED_ROLES:
+        return False
+    # Basic password strength: at least 8 chars (simulation-only check)
+    if len(password) < 8:
+        return False
     users = _load_users()
     if username in users:
         return False
@@ -50,25 +58,36 @@ def verify_password(username, password):
     if username not in users:
         return False
     record = users[username]
-    return _hash_password(password, record["salt"]) == record["hash"]
+    expected = record["hash"]
+    actual = _hash_password(password, record["salt"])
+    # Constant-time compare to prevent timing attacks
+    return hmac.compare_digest(expected, actual)
 
 
 def login(username, password):
-    """Returns (ok, message). Locks the account after repeated failures."""
+    """Returns (ok, message). Locks the account after repeated failures.
+    Uses generic messages to prevent user enumeration.
+    """
     users = _load_users()
     if username not in users:
-        return False, "unknown user"
+        # Generic message - don't reveal if user exists
+        return False, "invalid credentials"
     record = users[username]
     if record["failed"] >= config.MAX_FAILED_LOGINS:
         return False, "account locked"
-    if _hash_password(password, record["salt"]) == record["hash"]:
+    expected = record["hash"]
+    actual = _hash_password(password, record["salt"])
+    if hmac.compare_digest(expected, actual):
         record["failed"] = 0
         _save_users(users)
         return True, "welcome"
     record["failed"] += 1
     _save_users(users)
-    left = config.MAX_FAILED_LOGINS - record["failed"]
-    return False, "bad password, " + str(left) + " tries left"
+    # Generic message - don't reveal tries left to prevent enumeration
+    # Internal counter still enforced, but message is generic until lockout
+    if record["failed"] >= config.MAX_FAILED_LOGINS:
+        return False, "account locked"
+    return False, "invalid credentials"
 
 
 def unlock(username):

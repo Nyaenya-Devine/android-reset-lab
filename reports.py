@@ -1,5 +1,6 @@
 # reports.py - dashboard and report generation
 import json
+import os
 from collections import Counter
 
 import config
@@ -19,8 +20,10 @@ def dashboard():
     lines.append("=" * 46)
     lines.append("  events total: " + str(len(events)))
     for sev in ["INFO", "WARNING", "HIGH"]:
-        bar = "#" * by_severity.get(sev, 0)
-        lines.append("  " + sev.ljust(9) + str(by_severity.get(sev, 0)).rjust(3) + "  " + bar)
+        # Cap bar length to prevent DoS on large logs
+        count = by_severity.get(sev, 0)
+        bar = "#" * min(count, 50)
+        lines.append("  " + sev.ljust(9) + str(count).rjust(3) + "  " + bar)
     lines.append("-" * 46)
     for rule in threat_detection.RULES:
         state = "ALERT" if findings[rule] else "ok"
@@ -34,6 +37,7 @@ def dashboard():
 
 
 def write_report():
+    os.makedirs("reports", exist_ok=True)
     text = dashboard()
     with open("reports/dashboard.txt", "w") as f:
         f.write(text + "\n")

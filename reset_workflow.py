@@ -28,14 +28,24 @@ def request_reset(token, device_id):
     ok, msg = authorization.authorize(token, "request_reset")
     if not ok:
         return False, msg
+    session = authentication.check_session(token)
+    if session is None:
+        return False, "no session"
+    # Validate device exists before creating request
     if device_simulator.get_device(device_id) is None:
-        security_logger.log_event("RESET_REQUESTED", "unknown",
+        # Fixed: log actual actor, not "unknown" (was bug)
+        security_logger.log_event("RESET_REQUESTED", session["username"],
                                   "denied: device not in fleet",
                                   severity="WARNING", device_id=device_id)
         return False, "device not in fleet"
-    session = authentication.check_session(token)
-    request_id = secrets.token_hex(8)
+    # Ensure request_id uniqueness (avoid collision)
     requests = _load_requests()
+    for _ in range(5):
+        request_id = secrets.token_hex(8)
+        if request_id not in requests:
+            break
+    else:
+        return False, "could not generate unique request id"
     requests[request_id] = {
         "device_id": device_id,
         "requester": session["username"],
@@ -76,35 +86,43 @@ def execute_reset(token, request_id):
     ok, msg = authorization.authorize(token, "approve_reset")
     if not ok:
         return False, msg
+    session = authentication.check_session(token)
+    if session is None:
+        return False, "no session"
     requests = _load_requests()
     if request_id not in requests:
         return False, "no such request"
     req = requests[request_id]
     if req["status"] != "approved":
-        security_logger.log_event("RESET_BLOCKED", "system",
+        # Fixed: log actual executor, not "system"
+        security_logger.log_event("RESET_BLOCKED", session["username"],
                                   "execute without approval denied",
                                   severity="HIGH", device_id=req["device_id"],
                                   request_id=request_id)
         return False, "SIMULATION GUARD: reset not approved"
+    # Re-validate device exists at execution time
     devices = device_simulator.load_devices()
+    if req["device_id"] not in devices:
+        return False, "device not in fleet"
+    # Prevent double-wipe
+    if devices[req["device_id"]].get("status") == "wiped":
+        return False, "device already wiped"
     devices[req["device_id"]]["status"] = "wiped"
     device_simulator.save_devices(devices)
     req["status"] = "executed"
     _save_requests(requests)
-    security_logger.log_event("RESET_EXECUTED", req["approver"],
+    # Fixed: log actual executor, not approver (was bug)
+    security_logger.log_event("RESET_EXECUTED", session["username"],
                               "SIMULATED wipe complete", severity="WARNING",
                               device_id=req["device_id"], request_id=request_id)
     return True, "SIMULATED wipe complete (no real device touched)"
 
 
 if __name__ == "__main__":
-    device_simulator.seed_devices()
-    authentication.create_user("que", "LabRat!2026", "admin")
-    authentication.create_user("ops", "OpsOps!123", "operator")
-    authentication.login("que", "LabRat!2026")
-    admin_token = authentication.start_session("que")
-    authentication.login("ops", "OpsOps!123")
-    ops_token = authentication.start_session("ops")
+    import seed_lab
+    seed_lab.seed_all()
+    admin_token = seed_lab.get_default_token("que")
+    ops_token = seed_lab.get_default_token("ops")
 
     ok, rid1 = request_reset(ops_token, "AND-003")
     print("1 request by operator:", ok)
@@ -115,3 +133,4 @@ if __name__ == "__main__":
     ok, rid2 = request_reset(admin_token, "AND-006")
     print("6 request by admin:", ok)
     print("7 admin self-approve:", approve_reset(admin_token, rid2))
+    print("Note: Using seed_lab.py for simulation credentials")

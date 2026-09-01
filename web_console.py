@@ -1,4 +1,5 @@
 # web_console.py - tiny local console (loopback only, simulation only)
+import html
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs
 
@@ -7,8 +8,10 @@ import device_simulator
 import reset_workflow
 
 PAGE = """<html>
+<head><title>Android Reset Lab - Simulation Only</title></head>
 <body style="font-family:monospace; background:#111; color:#7f6">
 <h2>ANDROID RESET LAB - SIMULATION ONLY</h2>
+<p style="color:#fa0">Local-only demo. No real devices touched. Credentials are simulation-only.</p>
 <form method="post" action="/request">
   user: <input name="user"><br>
   pass: <input name="pass" type="password"><br>
@@ -22,11 +25,19 @@ PAGE = """<html>
 
 class Handler(BaseHTTPRequestHandler):
     def _page(self, msg=""):
-        body = PAGE.replace("{msg}", msg).encode()
+        # Fix: HTML escape msg to prevent XSS
+        safe_msg = html.escape(msg)
+        body = PAGE.replace("{msg}", safe_msg).encode()
         self.send_response(200)
-        self.send_header("Content-Type", "text/html")
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
         self.end_headers()
         self.wfile.write(body)
+
+    def log_message(self, format, *args):
+        # Suppress default logging or use security_logger if needed
+        return
 
     def do_GET(self):
         self._page()
