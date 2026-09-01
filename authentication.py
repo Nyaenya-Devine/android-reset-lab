@@ -4,7 +4,7 @@ import hmac
 import json
 import os
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import config
 
@@ -37,7 +37,7 @@ def create_user(username, password, role="viewer"):
     if role not in ALLOWED_ROLES:
         return False
     # Basic password strength: at least 8 chars (simulation-only check)
-    if len(password) < 8:
+    if len(password) < config.PASSWORD_MIN_LENGTH:
         return False
     users = _load_users()
     if username in users:
@@ -48,6 +48,8 @@ def create_user(username, password, role="viewer"):
         "hash": _hash_password(password, salt_hex),
         "role": role,
         "failed": 0,
+        "locked_until": None,  # P1: time-based lockout
+        "last_failed_at": None,
     }
     _save_users(users)
     return True
@@ -65,7 +67,7 @@ def verify_password(username, password):
 
 
 def login(username, password):
-    """Returns (ok, message). Locks the account after repeated failures.
+    """Returns (ok, message). Locks the account after repeated failures with time-based auto-unlock.
     Uses generic messages to prevent user enumeration.
     """
     users = _load_users()
@@ -73,20 +75,62 @@ def login(username, password):
         # Generic message - don't reveal if user exists
         return False, "invalid credentials"
     record = users[username]
+    
+    # P1: Handle time-based lockout with auto-unlock
+    # Ensure backward compat: add missing fields if old user record
+    if "locked_until" not in record:
+        record["locked_until"] = None
+    if "failed" not in record:
+        record["failed"] = 0
+    
+    now = datetime.now(timezone.utc)
+    
+    # Check if currently locked
+    locked_until_str = record.get("locked_until")
+    if locked_until_str:
+        try:
+            locked_until = datetime.fromisoformat(locked_until_str)
+            if now < locked_until:
+                # Still locked
+                remaining = int((locked_until - now).total_seconds() / 60) + 1
+                return False, f"account locked (try again in {remaining}m)"
+            else:
+                # Lockout expired - auto-unlock
+                record["failed"] = 0
+                record["locked_until"] = None
+        except (ValueError, TypeError):
+            # Corrupted locked_until, reset
+            record["locked_until"] = None
+            record["failed"] = 0
+    
     if record["failed"] >= config.MAX_FAILED_LOGINS:
-        return False, "account locked"
+        # Should have been caught by locked_until check, but handle legacy case
+        # Set lockout now
+        lockout_until = now + timedelta(minutes=config.LOCKOUT_DURATION_MINUTES)
+        record["locked_until"] = lockout_until.isoformat()
+        _save_users(users)
+        return False, f"account locked (try again in {config.LOCKOUT_DURATION_MINUTES}m)"
+    
     expected = record["hash"]
     actual = _hash_password(password, record["salt"])
     if hmac.compare_digest(expected, actual):
         record["failed"] = 0
+        record["locked_until"] = None
+        record["last_failed_at"] = None
         _save_users(users)
         return True, "welcome"
+    
+    # Failed attempt
     record["failed"] += 1
+    record["last_failed_at"] = now.isoformat()
+    if record["failed"] >= config.MAX_FAILED_LOGINS:
+        lockout_until = now + timedelta(minutes=config.LOCKOUT_DURATION_MINUTES)
+        record["locked_until"] = lockout_until.isoformat()
+        _save_users(users)
+        return False, f"account locked (try again in {config.LOCKOUT_DURATION_MINUTES}m)"
+    
     _save_users(users)
     # Generic message - don't reveal tries left to prevent enumeration
-    # Internal counter still enforced, but message is generic until lockout
-    if record["failed"] >= config.MAX_FAILED_LOGINS:
-        return False, "account locked"
     return False, "invalid credentials"
 
 
@@ -94,6 +138,8 @@ def unlock(username):
     users = _load_users()
     if username in users:
         users[username]["failed"] = 0
+        users[username]["locked_until"] = None
+        users[username]["last_failed_at"] = None
         _save_users(users)
         return True
     return False

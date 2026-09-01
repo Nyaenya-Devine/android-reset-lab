@@ -93,7 +93,52 @@ def test_account_locks_after_three_failures():
 
     ok, msg = authentication.login("t_lock", "CorrectPass!1")
     assert not ok
-    assert msg == "account locked"
+    # P1: now includes time remaining, check substring
+    assert "account locked" in msg
+
+
+def test_lockout_auto_unlocks_after_time():
+    """P1: Test time-based auto-unlock"""
+    from datetime import datetime, timezone, timedelta
+    authentication.create_user("t_lock_time", "CorrectPass!1", "viewer")
+
+    for _ in range(3):
+        authentication.login("t_lock_time", "WrongPass!1")
+
+    ok, msg = authentication.login("t_lock_time", "CorrectPass!1")
+    assert not ok
+    assert "account locked" in msg
+
+    # Simulate time passing by manually setting locked_until to past
+    users = authentication._load_users()
+    past = datetime.now(timezone.utc) - timedelta(minutes=20)
+    users["t_lock_time"]["locked_until"] = past.isoformat()
+    authentication._save_users(users)
+
+    # Should now be able to login
+    ok, msg = authentication.login("t_lock_time", "CorrectPass!1")
+    assert ok
+    assert msg == "welcome"
+
+
+def test_password_strength_enforced():
+    """P1: Test password strength"""
+    # Too short should fail
+    ok = authentication.create_user("t_weak", "short", "viewer")
+    assert not ok
+    # Long enough should succeed
+    ok = authentication.create_user("t_strong", "StrongPass!123", "viewer")
+    assert ok
+
+
+def test_role_whitelist():
+    """P1: Test role whitelist prevents injection"""
+    ok = authentication.create_user("t_badrole", "ValidPass!1", "superadmin")
+    assert not ok
+    ok = authentication.create_user("t_badrole2", "ValidPass!1", "admin'; DROP TABLE")
+    assert not ok
+    ok = authentication.create_user("t_goodrole", "ValidPass!1", "admin")
+    assert ok
 
 
 def test_successful_login_resets_failed_counter():

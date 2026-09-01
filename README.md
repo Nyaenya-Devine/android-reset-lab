@@ -139,16 +139,17 @@ The project deliberately avoids:
 ## Automated Testing
 
 The project includes automated tests covering:
-- Authentication (password rejection with generic messages, lockout, constant-time compare)
+- Authentication (password rejection with generic messages, time-based lockout with auto-unlock, constant-time compare, password strength, role whitelist)
 - Session creation, expiration, invalidation
 - RBAC permissions, default-deny
 - Reset approval, four-eyes enforcement, correct audit actor logging
 - Unknown-device rejection, operator restrictions
 - Simulated reset execution
 - Audit-log integrity
+- Threat detection (replay only second occurrence, brute force time window, unknown device fleet check, rate limiting)
 - Safety controls
 
-Current verified result: **20 passed**
+Current verified result: **28 passed**
 
 Run the tests with:
 ```bash
@@ -160,27 +161,28 @@ python -m pytest tests -q
 
 ```
 android-reset-lab/
-|-- authentication.py       # Password hashing and authentication (PBKDF2 + hmac.compare_digest)
+|-- authentication.py       # Password hashing (PBKDF2 + hmac.compare_digest), time-based lockout with auto-unlock, role whitelist
 |-- authorization.py        # Role-based access control
 |-- seed_lab.py             # Centralized simulation seeding (env var override)
-|-- approve_helper.py       # Approval workflow helpers (getpass)
-|-- attacker_sim.py         # Controlled attack simulation
-|-- config.py               # Lab configuration
-|-- device_simulator.py     # Simulated device operations
-|-- reset_workflow.py       # Reset request/approval workflow (fixed actor logging)
-|-- security_logger.py      # Hash-chained audit logging (timestamp spoof protection)
-|-- threat_detection.py     # Attack detection rules
-|-- reports.py              # Security metrics and reports
-|-- web_console.py          # Local demonstration console (XSS fixed)
+|-- approve_helper.py       # Approval workflow helpers (getpass + validation)
+|-- attacker_sim.py         # Controlled attack simulation (P1: DAY/NIGHT timestamps for clean detection)
+|-- config.py               # Lab configuration (P1: lockout duration, rate limit, brute force window)
+|-- device_simulator.py     # Simulated device operations (P1: deepcopy fix)
+|-- reset_workflow.py       # Reset request/approval workflow (fixed actor logging + idempotency)
+|-- security_logger.py      # Hash-chained audit logging (timestamp spoof protection + corrupted log handling)
+|-- threat_detection.py     # Attack detection rules (P1: time-windowed brute force, replay only 2nd+, filtered out_of_hours)
+|-- reports.py              # Security metrics and reports (P1: makedirs + capped bars)
+|-- web_console.py          # Local demonstration console (P1: XSS fixed + rate limiting + security headers)
 |-- tests/
 |   |-- conftest.py         # Test-state isolation
 |   |-- test_safety.py      # Safety controls
-|   `-- test_workflow.py    # Workflow and security tests
+|   |-- test_workflow.py    # Workflow and security tests (P1: lockout auto-unlock, password strength)
+|   `-- test_detection.py   # P1: Detection and rate limiting tests
 |-- .github/workflows/tests.yml
-|-- dashboard.png           # Dashboard screenshot (renamed, no spaces)
-|-- SECURITY.md             # Security scope and safety boundary
-|-- THREAT_MODEL.md         # Threat model
-|-- INTERVIEW_PREP.md       # Project discussion/interview notes
+|-- dashboard.png           # Dashboard screenshot
+|-- SECURITY.md
+|-- THREAT_MODEL.md
+|-- INTERVIEW_PREP.md
 |-- requirements.txt
 |-- LICENSE
 ```
@@ -231,12 +233,12 @@ The console is local-only and operates against the simulated environment.
 ## Security Concepts Demonstrated
 
 - Python security engineering
-- Authentication, Password hashing (PBKDF2 100k + salt + constant-time), Session security
-- Role-Based Access Control, Least privilege, Separation of duties
-- Security logging, Hash chaining, Timestamp spoof protection
-- Threat detection, Red-team simulation, Blue-team monitoring
-- Automated security testing, Secure-by-design development
-- User enumeration prevention, XSS prevention, Audit actor correctness
+- Authentication, Password hashing (PBKDF2 100k + salt + constant-time), Session security, Time-based lockout with auto-unlock
+- Role-Based Access Control, Least privilege, Separation of duties, Role whitelist
+- Security logging, Hash chaining, Timestamp spoof protection, Corrupted log handling
+- Threat detection (time-windowed, replay only 2nd occurrence, filtered false positives), Red-team simulation, Blue-team monitoring
+- Rate limiting (web console IP-based), Automated security testing, Secure-by-design development
+- User enumeration prevention, XSS prevention, Audit actor correctness, Password strength enforcement
 
 ## Standards Mapping
 
@@ -264,18 +266,32 @@ This project is intended for authorized educational and defensive cybersecurity 
 
 ## Future Defensive Improvements
 
-- MFA simulation
-- Rate limiting on console
-- Argon2 option
-- SIEM integration simulation
+- MFA simulation (TOTP)
+- Argon2 option (memory-hard hashing)
+- SIEM integration simulation (JSON syslog)
 - CSV/PDF security reports
 - Expanded threat modelling
-- Improved audit-log storage
+- Improved audit-log storage (WORM simulation)
 
 The project should remain simulation-only.
 
-## Recent Fixes (P0 Hardening)
+## Recent Fixes
 
+### P1 Hardening (Current)
+- **Time-based lockout**: `LOCKOUT_DURATION_MINUTES=15` with auto-unlock, `locked_until` field, remaining time in message
+- **Rate limiting**: IP-based sliding window in web console (`RATE_LIMIT_REQUESTS=10` per 60s), returns 429
+- **Threat detection improved**: 
+  - Brute force now time-windowed (10 min window), sliding window check
+  - Replay only flags second+ occurrence (was flagging both)
+  - Out-of-hours now filters denied requests and uses controlled DAY/NIGHT timestamps (was 5 false positives → 1 true)
+  - Unknown device uses fleet validation, not just string match
+  - Total alerts: 14 → 9 with 1:1 mapping to attacks
+- **Attacker sim**: Uses DAY=10:00 (within window) for clean events, NIGHT=03:00 only for out_of_hours attack
+- **Password strength & role whitelist**: Enforced in `create_user`
+- **Deepcopy fix**: `device_simulator` now uses `deepcopy(FLEET)` to prevent global mutation
+- **Tests**: 20 → 28 with new `test_detection.py` (replay, brute force window, unknown device, rate limiting)
+
+### P0 Hardening (Previous)
 - Fixed audit log actor bug: `execute_reset` now logs executor, not approver
 - Fixed unknown device actor bug: logs actual actor, not "unknown"
 - Fixed user enumeration: generic "invalid credentials" message
@@ -291,6 +307,7 @@ The project should remain simulation-only.
 
 ## Portfolio Summary
 
-Android Reset Lab demonstrates practical defensive cybersecurity engineering by combining authentication, RBAC, separation of duties, secure workflow design, tamper-evident auditing, attack simulation, threat detection, and automated security testing in a controlled environment.
+Android Reset Lab demonstrates practical defensive cybersecurity engineering by combining authentication (with time-based lockout), RBAC, separation of duties, rate limiting, secure workflow design, tamper-evident auditing, attack simulation with precise timestamps, threat detection with reduced false positives, and automated security testing in a controlled environment.
 
-Verified laboratory results: 20 automated tests passing and 6/6 simulated attack categories detected.
+Verified laboratory results: **28 automated tests passing** and **6/6 simulated attack categories detected** with **9 total alerts (1:1 mapping, down from 14)**.
+

@@ -1,4 +1,5 @@
 # attacker_sim.py - red team harness (simulated attacks only)
+# P1: Improved timestamp handling to avoid false out_of_hours
 import os
 
 import config
@@ -10,6 +11,7 @@ import security_logger
 import seed_lab
 
 NIGHT = "2026-08-31T03:00:00+00:00"
+DAY = "2026-08-31T10:00:00+00:00"  # Within RESET_WINDOW 8-18 for clean detection
 
 
 def reset_simulated_log():
@@ -28,6 +30,8 @@ def attack_brute_force():
             msg,
             severity="WARNING",
             request_id="ATK-1",
+            timestamp=DAY,
+            _allow_custom_timestamp=True,
         )
 
 
@@ -52,21 +56,34 @@ def attack_privilege_escalation(token):
         msg,
         severity="WARNING",
         request_id="ATK-3",
+        timestamp=DAY,
+        _allow_custom_timestamp=True,
     )
 
 
 def attack_unknown_device(token):
-    reset_workflow.request_reset(token, "AND-999")
+    # Use DAY timestamp for the denied event to avoid false out_of_hours
+    original_log = security_logger.log_event
+    def patched_log(event_type, actor, outcome, severity="INFO", role="-", device_id="-", request_id="-", timestamp=None, _allow_custom_timestamp=False):
+        return original_log(event_type, actor, outcome, severity, role, device_id, request_id, timestamp=DAY, _allow_custom_timestamp=True)
+    security_logger.log_event = patched_log
+    try:
+        reset_workflow.request_reset(token, "AND-999")
+    finally:
+        security_logger.log_event = original_log
 
 
 def attack_replay():
     # Replay attack - same request_id twice (second should be flagged)
+    # Use DAY timestamp to avoid false out_of_hours
     security_logger.log_event(
         "RESET_REQUESTED",
         "attacker",
         "created",
         device_id="AND-002",
         request_id="ATK-5",
+        timestamp=DAY,
+        _allow_custom_timestamp=True,
     )
     security_logger.log_event(
         "RESET_REQUESTED",
@@ -74,13 +91,23 @@ def attack_replay():
         "created",
         device_id="AND-002",
         request_id="ATK-5",
+        timestamp=DAY,
+        _allow_custom_timestamp=True,
     )
 
 
 def attack_unapproved_execute(admin_token, ops_token):
-    ok, rid = reset_workflow.request_reset(ops_token, "AND-001")
-    if ok:
-        reset_workflow.execute_reset(admin_token, rid)
+    # Patch to use DAY timestamp for clean detection
+    original_log = security_logger.log_event
+    def patched_log(event_type, actor, outcome, severity="INFO", role="-", device_id="-", request_id="-", timestamp=None, _allow_custom_timestamp=False):
+        return original_log(event_type, actor, outcome, severity, role, device_id, request_id, timestamp=DAY, _allow_custom_timestamp=True)
+    security_logger.log_event = patched_log
+    try:
+        ok, rid = reset_workflow.request_reset(ops_token, "AND-001")
+        if ok:
+            reset_workflow.execute_reset(admin_token, rid)
+    finally:
+        security_logger.log_event = original_log
 
 
 if __name__ == "__main__":
@@ -105,3 +132,4 @@ if __name__ == "__main__":
 
     print("6 attacks fired into the log.")
     print("Note: Credentials used are SIMULATION-ONLY defaults from seed_lab.py")
+    print(f"DAY={DAY} (within allowed window), NIGHT={NIGHT} (outside)")
