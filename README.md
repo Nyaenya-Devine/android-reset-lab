@@ -2,6 +2,14 @@
 
 > **One-line pitch:** I built a simulation of an enterprise MDM reset system that *prevents* single-person abuse through authentication, dual-control approval, and tamper-evident audit logs — then proved it works by attacking it myself (6/6 attacks detected).
 
+>### Why is it simulation-only?
+This lab never touches a real device — by design. Real wipes are destructive and irreversible; this project exists to prove the **controls** hold (authorization, separation of duties, tamper-evident logging, detection) without risking harm. That's the same model as cyber ranges and security training platforms. The device is the scenario; the security logic is the subject. Real-device (ADB / MDM API) integration is a documented next step, not a default.
+
+### Next steps
+- Real-device integration via ADB / Android Enterprise (MDM) APIs — intentionally out of scope for the simulation.
+- Ship audit logs to a real SIEM.
+- Optional Argon2 for password hashing.
+
 [![Tests](https://github.com/Nyaenya-Devine/android-reset-lab/actions/workflows/tests.yml/badge.svg)](https://github.com/Nyaenya-Devine/android-reset-lab/actions)
 ![Python 3.11](https://img.shields.io/badge/python-3.11-blue)
 ![Tests](https://img.shields.io/badge/tests-28%20passed-brightgreen)
