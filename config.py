@@ -24,3 +24,11 @@ STORAGE_DB = os.getenv("LAB_STORAGE_DB", "data/lab.db")
 AUTH_RATE_LIMIT_REQUESTS = 5      # max login attempts per IP per minute
 AUTH_RATE_LIMIT_WINDOW_SECONDS = 60
 CSRF_TOKEN_TTL_MINUTES = 30       # CSRF token validity
+
+# P3: Slow improvements - keep simulation-only guard
+HASH_ALGO = os.getenv("LAB_HASH_ALGO", "pbkdf2")  # pbkdf2 (default) or argon2id
+HMAC_KEY_FILE = os.getenv("LAB_HMAC_KEY_FILE", "data/hmac.key")
+LOG_SHIP_STDOUT = os.getenv("LAB_LOG_SHIP_STDOUT", "false").lower() == "true"
+LOG_SHIP_FILE = os.getenv("LAB_LOG_SHIP_FILE", "")  # optional SIEM file
+TOTP_ISSUER = os.getenv("LAB_TOTP_ISSUER", "AndroidResetLab")
+MFA_REQUIRED = os.getenv("LAB_MFA_REQUIRED", "false").lower() == "true"  # simulation only

@@ -12,6 +12,7 @@ reports/
 
 # Personal learning files
 scratch/
+uploads/
 
 # Large binary assets - should not be in git, use releases or external links
 *.mp4
@@ -20,6 +21,12 @@ scratch/
 *.mkv
 *.zip
 *.tar.gz
+*.jpg
+*.jpeg
+*.JPG
+*.JPEG
+# Keep dashboard.png (allowed)
+!dashboard.png
 
 # Environment and secrets
 .env
@@ -40,4 +47,3 @@ Thumbs.db
 # Keep dashboard screenshot but ignore other screenshots with spaces
 # Screenshot with spaces is deprecated, use dashboard.png
 Screenshot *.png
-

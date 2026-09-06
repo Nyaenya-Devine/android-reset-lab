@@ -2,6 +2,8 @@
 # Core lab uses only Python stdlib, but tests need pytest
 pytest>=7.0.0
 
+# P3: Optional hardening (fallback to PBKDF2 if not installed)
+argon2-cffi>=21.3.0  # Argon2id - modern password hashing, env LAB_HASH_ALGO=argon2
+
 # Optional: for future enhancements
-# argon2-cffi>=21.0.0  # Alternative to PBKDF2
 # python-dotenv>=1.0.0  # For env var loading

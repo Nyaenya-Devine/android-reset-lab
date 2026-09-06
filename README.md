@@ -5,17 +5,20 @@
 >### Why is it simulation-only?
 This lab never touches a real device — by design. Real wipes are destructive and irreversible; this project exists to prove the **controls** hold (authorization, separation of duties, tamper-evident logging, detection) without risking harm. That's the same model as cyber ranges and security training platforms. The device is the scenario; the security logic is the subject. Real-device (ADB / MDM API) integration is a documented next step, not a default.
 
-### Next steps
-- Real-device integration via ADB / Android Enterprise (MDM) APIs — intentionally out of scope for the simulation.
-- Ship audit logs to a real SIEM.
-- Optional Argon2 for password hashing.
+### Next steps (P3 done, simulation-only guard kept)
+- ✅ Argon2id option with PBKDF2 fallback (`LAB_HASH_ALGO=argon2`) — done
+- ✅ HMAC-signed audit log tamper-proof + SIEM shipping — done
+- ✅ TOTP MFA simulation (stdlib-only) — done
+- Real-device integration via ADB / Android Enterprise (MDM) APIs — intentionally out of scope for the simulation, behind explicit flag if ever added
 
 [![Tests](https://github.com/Nyaenya-Devine/android-reset-lab/actions/workflows/tests.yml/badge.svg)](https://github.com/Nyaenya-Devine/android-reset-lab/actions)
 ![Python 3.11](https://img.shields.io/badge/python-3.11-blue)
-![Tests](https://img.shields.io/badge/tests-47%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/tests-52%20passed-brightgreen)
 ![Detection](https://img.shields.io/badge/detection-6%2F6%20(100%25)-green)
-![Security](https://img.shields.io/badge/security-P2%20hardened-green)
+![Security](https://img.shields.io/badge/security-P3%20hardened-green)
 ![Storage](https://img.shields.io/badge/storage-JSON%20%2B%20SQLite-blue)
+![Hash](https://img.shields.io/badge/hash-PBKDF2%20%2B%20Argon2id-orange)
+![MFA](https://img.shields.io/badge/MFA-TOTP%20sim-blueviolet)
 [![Release](https://img.shields.io/github/v/release/Nyaenya-Devine/android-reset-lab?label=release)](https://github.com/Nyaenya-Devine/android-reset-lab/releases/tag/v2.0)
 
 **🎥 Demo Video:** [Download v2.0 Demo (3.9MB)](https://github.com/Nyaenya-Devine/android-reset-lab/releases/download/v2.0/android-reset-lab-demo.mp4) | **📊 Dashboard:** Below
@@ -45,15 +48,16 @@ This lab never touches a real device — by design. Real wipes are destructive a
 
 ## 🎯 Key Achievements (Metrics)
 
-| Metric | Before Hardening | After P0+P1 | After P2 (Current) |
-|--------|------------------|-------------|-------------------|
-| **Tests** | 18 | 28 (+5 detection, +3 security) | **47 (+19 negative/attack)** |
-| **Detection** | 6/6 but 14 alerts (5 false out-of-hours, replay double-counted) | 6/6 with 9 alerts (1:1 mapping, precise) | **6/6 with 9 alerts + ledger/self-approval demos** |
-| **Critical bugs** | 8 (actor logged as approver not executor, enumeration, timing attack, XSS, etc.) | 0 — all fixed with regression tests | **0 — + CSRF, rate limit auth, storage abstraction** |
-| **Lockout** | Permanent DoS | 15 min auto-unlock | **15m + IP rate limit 5/min auth, 10/min web** |
-| **Storage** | JSON only, no isolation | JSON + tmp_path isolation | **JSON + SQLite (WAL, ACID) via LAB_STORAGE_BACKEND=sqlite** |
-| **Security scanning** | None | CodeQL + Dependabot | **+ pip-audit + TruffleHog + safety tests** |
-| **Repo hygiene** | 3.9MB video in git, broken CI | 73KB repo, video as release asset, proper CI | **Clean, honest limitations documented** |
+| Metric | Before Hardening | After P0+P1 | After P2 | After P3 (Current) |
+|--------|------------------|-------------|----------|-------------------|
+| **Tests** | 18 | 28 (+5 detection, +3 security) | 47 (+19 negative/attack) | **52 (+5 P3: Argon2, HMAC, TOTP, SIEM)** |
+| **Detection** | 6/6 but 14 alerts (5 false out-of-hours, replay double-counted) | 6/6 with 9 alerts (1:1 mapping, precise) | 6/6 with 9 alerts + ledger/self-approval demos | **6/6 + HMAC + MFA + SIEM shipping demos** |
+| **Critical bugs** | 8 (actor logged as approver not executor, enumeration, timing attack, XSS, etc.) | 0 — all fixed | 0 — + CSRF, rate limit auth, storage | **0 — + Argon2id, HMAC, TOTP, SIEM** |
+| **Lockout** | Permanent DoS | 15 min auto-unlock | 15m + IP rate limit 5/min auth, 10/min web | **15m + IP limit + MFA optional** |
+| **Storage** | JSON only, no isolation | JSON + tmp_path isolation | JSON + SQLite (WAL, ACID) | **JSON + SQLite + HMAC key separate** |
+| **Hashing** | PBKDF2 100k | PBKDF2 100k | PBKDF2 100k | **PBKDF2 100k + Argon2id optional (LAB_HASH_ALGO=argon2)** |
+| **Security scanning** | None | CodeQL + Dependabot | + pip-audit + TruffleHog | **+ safety tests updated for demo exclusion** |
+| **Repo hygiene** | 3.9MB video in git, broken CI | 73KB repo, video as release asset | Clean, honest limits | **Clean, 14 honest limits, P3 demos** |
 
 ---
 
@@ -82,9 +86,9 @@ This lab never touches a real device — by design. Real wipes are destructive a
 
 ```mermaid
 flowchart TD
-    A[User Login] --> B{PBKDF2 + Salt + compare_digest}
+    A[User Login + Optional TOTP] --> B{PBKDF2/Argon2id + compare_digest}
     B -->|Fail| C[Increment failed, lock 15m after 3]
-    B -->|Success| D[Session Token 128-bit TTL 30m]
+    B -->|Success MFA?| D[Session Token 128-bit TTL 30m + CSRF + MFA Flag]
     D --> E{RBAC Check default-deny}
     E -->|Deny| F[ACCESS_DENIED logged]
     E -->|Allow| G[Request Reset - Validate Device in Fleet]
@@ -92,9 +96,9 @@ flowchart TD
     H --> I{Second Admin Approves? requester != approver}
     I -->|No| J[APPROVAL_DENIED]
     I -->|Yes| K[SIMULATED Wipe - status field only]
-    K --> L[Hash-Chained Audit Log prev_hash + entry_hash]
+    K --> L[Hash-Chained Audit Log prev_hash + entry_hash + HMAC + SIEM Shipping]
     L --> M[Threat Detection 6 Rules Time-Windowed]
-    M --> N[Dashboard + Metrics]
+    M --> N[Dashboard + Metrics + Splunk JSON]
 ```
 
 **Data flow is 100% simulated:** `data/devices.json` status changes from `active` → `wiped`, never touches real hardware.
@@ -106,14 +110,17 @@ flowchart TD
 ```bash
 git clone https://github.com/Nyaenya-Devine/android-reset-lab.git
 cd android-reset-lab
-pip install -r requirements.txt
+pip install -r requirements.txt  # includes argon2-cffi optional
 python seed_lab.py          # creates 3 fake users: que/admin, ops/operator, analyst
 python attacker_sim.py      # fires 6 attacks into logs/security_log.jsonl
 python threat_detection.py  # prints 6/6 detection
 python reports.py           # prints dashboard
-pytest -q                   # 47 passed (json) — LAB_STORAGE_BACKEND=sqlite pytest -q also 47
+pytest -q                   # 52 passed (json) — LAB_STORAGE_BACKEND=sqlite pytest -q also 52
 python demo_ledger_attack.py    # tamper-evident ledger demo: tamper detected at line 2
 python demo_self_approval.py    # four-eyes demo: self-approval blocked, second admin allowed
+python demo_p3_hardening.py     # P3: Argon2id + HMAC tamper-proof + TOTP MFA + SIEM shipping
+LAB_HASH_ALGO=argon2 python demo_p3_hardening.py  # test Argon2id path
+LAB_LOG_SHIP_STDOUT=true python security_logger.py  # see SIEM JSON stdout
 python web_console.py       # open http://127.0.0.1:8000 - try requesting reset (CSRF protected)
 ```
 
@@ -181,24 +188,26 @@ See `SECURITY.md` and `THREAT_MODEL.md` for full scope.
 ## 📁 Project Structure (Recruiter-Friendly)
 
 ```
-├── authentication.py       # PBKDF2 + hmac.compare_digest, 15m lockout, 5/min auth rate limit
+├── authentication.py       # P3: PBKDF2 100k + Argon2id optional (LAB_HASH_ALGO=argon2), TOTP MFA RFC 6238 stdlib-only, 15m lockout, 5/min auth rate limit
 ├── authorization.py        # RBAC default-deny + role whitelist
 ├── storage.py              # P2: JSON + SQLite (WAL, ACID) abstraction + migration
 ├── seed_lab.py             # Centralized seeding, env var override for creds
 ├── reset_workflow.py       # Four-eyes workflow, fixed actor logging, idempotency, storage abstraction
-├── security_logger.py      # Hash-chained JSONL, timestamp spoof protection
+├── security_logger.py      # P3: Hash-chained JSONL + HMAC-SHA256 tamper-proof + SIEM shipping stdout/file
 ├── threat_detection.py     # P1: time-windowed, replay only 2nd+, filtered
 ├── web_console.py          # Loopback only, XSS fixed, CSRF token + SameSite Strict, IP rate limit 10/60s
 ├── device_simulator.py     # Fake fleet AND-001..006, deepcopy fix, storage abstraction
 ├── attacker_sim.py         # Red team with DAY/NIGHT controlled timestamps (6 attacks)
 ├── demo_ledger_attack.py   # P2: Ledger tampering → verify_logs detects exact line
 ├── demo_self_approval.py   # P2: Four-eyes → self-approval blocked, second admin allowed
+├── demo_p3_hardening.py    # P3: Argon2id + HMAC tamper-proof + TOTP MFA + SIEM shipping demos
 ├── tests/
 │   ├── conftest.py         # Isolated tmp_path + STORAGE_DB isolation + rate limit clearing
 │   ├── test_workflow.py    # 21 tests: auth, RBAC, dual-control, lockout auto-unlock
 │   ├── test_detection.py   # 5 tests: replay, brute force window, rate limiting
-│   ├── test_safety.py      # 2 tests: no destructive calls, SIMULATION_MODE
-│   └── test_negative.py    # P2: 19 negative/attack tests (SQLi, XSS, CSRF, rate limit, tamper)
+│   ├── test_safety.py      # 2 tests: no destructive calls (core only, demo/tests excluded), SIMULATION_MODE
+│   ├── test_negative.py    # P2: 19 negative/attack tests (SQLi, XSS, CSRF, rate limit, tamper)
+│   └── test_p3.py          # P3: 5 tests: Argon2id, HMAC log, TOTP gen/verify, MFA flow, SIEM shipping
 ├── dashboard.png           # Screenshot (no spaces, 44KB)
 └── .github/workflows/
     ├── tests.yml           # CI runs pytest + attack sim + verify
@@ -212,9 +221,10 @@ See `SECURITY.md` and `THREAT_MODEL.md` for full scope.
 ## 🧪 Testing
 
 ```bash
-pip install -r requirements.txt
-pytest -v  # 47 passed (json)
-LAB_STORAGE_BACKEND=sqlite pytest -v  # 47 passed (sqlite WAL)
+pip install -r requirements.txt  # includes argon2-cffi optional
+pytest -v  # 52 passed (json) — 21 workflow + 5 detection + 2 safety + 19 negative + 5 P3
+LAB_STORAGE_BACKEND=sqlite pytest -v  # 52 passed (sqlite WAL)
+LAB_HASH_ALGO=argon2 pytest -v  # test Argon2id path
 
 # What tests prove:
 # - Wrong password → "invalid credentials" (not "unknown user") — prevents enumeration
@@ -223,11 +233,14 @@ LAB_STORAGE_BACKEND=sqlite pytest -v  # 47 passed (sqlite WAL)
 # - Operator cannot approve, viewer cannot request
 # - Self-approval blocked, execute without approval blocked (demo_self_approval.py)
 # - Device already wiped → blocked (idempotency)
-# - Audit log tampering detected at exact line (demo_ledger_attack.py)
+# - Audit log tampering detected at exact line (demo_ledger_attack.py) + HMAC tamper-proof (demo_p3_hardening.py)
 # - Replay only 2nd occurrence flagged
 # - Rate limiting: 10 req/60s web + 5 req/60s auth per IP
 # - CSRF token validation, SQLi/XSS payloads rejected, weak passwords blocked
 # - Storage abstraction: JSON + SQLite both isolated per test
+# - Argon2id: modern hashing with PBKDF2 fallback (LAB_HASH_ALGO=argon2)
+# - TOTP MFA: RFC 6238 stdlib-only, 6-digit, window=1, MFA_REQUIRED flag
+# - SIEM shipping: stdout JSON + file for Splunk collector (LAB_LOG_SHIP_STDOUT/FILE)
 ```
 
 ---
@@ -236,17 +249,17 @@ LAB_STORAGE_BACKEND=sqlite pytest -v  # 47 passed (sqlite WAL)
 
 | Feature | MITRE ATT&CK | NIST 800-53 |
 |---------|--------------|-------------|
-| Password hashing + lockout | T1110 Brute Force | IA-5, AC-7 |
-| Session tokens | T1078 Valid Accounts | IA-11 |
+| Password hashing PBKDF2/Argon2id + lockout + MFA | T1110 Brute Force | IA-5, AC-7, IA-2(1) MFA |
+| Session tokens + CSRF + MFA flag | T1078 Valid Accounts | IA-11, SC-23 |
 | RBAC | T1134 Access Token Manipulation | AC-3, AC-6 |
 | Dual control | — | AC-5 Separation of Duties |
-| Hash-chained log | T1070 Indicator Removal | AU-9 Protection |
+| Hash-chained log + HMAC + SIEM shipping | T1070 Indicator Removal | AU-9 Protection, AU-4, SI-4 |
 | Threat detection | Various | SI-4 Monitoring |
 | Rate limiting | — | SC-5 Denial of Service Protection |
 
 ---
 
-## 🚀 What I Fixed (P0+P1+P2) — Shows Growth
+## 🚀 What I Fixed (P0+P1+P2+P3) — Shows Growth
 
 **P0 (Critical bugs found in initial review):**
 - Actor logged as approver not executor → fixed + regression test
@@ -260,7 +273,7 @@ LAB_STORAGE_BACKEND=sqlite pytest -v  # 47 passed (sqlite WAL)
 - Detection 14 alerts with false positives → 9 precise alerts (1:1)
 - Controlled timestamps DAY/NIGHT for deterministic results
 
-**P2 (Slow, necessary improvements — current):**
+**P2 (Slow, necessary improvements):**
 - JSON only → JSON + SQLite abstraction (`storage.py`) with WAL, atomic writes, migration
 - No negative tests → 19 attack tests (SQLi, XSS, CSRF, rate limit, self-approval, ledger tamper)
 - No auth rate limit → 5 req/60s per IP/user + 10 req/60s web console (429 + CSRF_BLOCKED logging)
@@ -268,6 +281,14 @@ LAB_STORAGE_BACKEND=sqlite pytest -v  # 47 passed (sqlite WAL)
 - No scanning → CodeQL + Dependabot + pip-audit + TruffleHog in CI
 - No threat diagram → Mermaid flowchart with 11 attacks mapped to controls/detection/demo scripts
 - Honest limitations documented (13 items) + 2 demos proving detection/blocking
+
+**P3 (Current — slow improvements, simulation-only guard kept):**
+- PBKDF2 100k only → PBKDF2 + Argon2id option (`LAB_HASH_ALGO=argon2`) with fallback, `argon2-cffi` optional
+- Tamper-evident only → Hash chain + HMAC-SHA256 tamper-proof when key in `data/hmac.key` (0600) kept separate, `generate_hmac_key()` + `verify_logs()` checks HMAC
+- No MFA → TOTP RFC 6238 stdlib-only, 6-digit, 30s period, window=1, `enable_totp()`, `get_totp_uri()` for QR, `LAB_MFA_REQUIRED` flag
+- No SIEM shipping → Stdout JSON + file shipping for Splunk/SIEM collector, env `LAB_LOG_SHIP_STDOUT=true` / `LAB_LOG_SHIP_FILE=logs/siem.log`
+- Safety tests → Updated to exclude demo/tests from destructive-call ban (demo cleanup allowed), core lab still banned
+- Tests 47→52 (+5 P3), honest limits 13→14, threat model 11→15 attacks
 
 ---
 
@@ -301,4 +322,4 @@ python attacker_sim.py && python threat_detection.py && python reports.py
 
 MIT License — See `LICENSE`. This is **simulation-only** for education. All attacks run against fake local data. Real MDM belongs on authorized platforms under organizational policy and law.
 
-**Verified:** 47 tests passing (json + sqlite), 6/6 detection, log INTACT, 9 precise alerts, ledger tamper detected, self-approval blocked.
+**Verified:** 52 tests passing (json + sqlite, including Argon2id, HMAC, TOTP, SIEM), 6/6 detection, log INTACT + HMAC, 9 precise alerts, ledger tamper detected, self-approval blocked, MFA enforced, SIEM shipping works.

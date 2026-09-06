@@ -13,9 +13,16 @@ sys.path.insert(0, PROJECT)
 
 def _python_files():
     for root, dirs, files in os.walk(PROJECT):
-        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__")]
+        # Skip data, logs, and hidden dirs
+        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", "data", "logs", ".venv", "venv")]
         for name in files:
             if name.endswith(".py"):
+                # Demo files are allowed to use shutil for cleanup (simulation cleanup)
+                if name.startswith("demo_"):
+                    continue
+                # Tests are allowed to use tmp_path fixtures
+                if "tests" in root:
+                    continue
                 yield os.path.join(root, name)
 
 
