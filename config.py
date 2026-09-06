@@ -1,4 +1,6 @@
 # config.py - policy settings only, no logic here
+import os
+
 LAB_NAME = "Android Reset Lab"
 SIMULATION_MODE = True        # must stay True: the lab never touches real devices
 LOG_FILE = "logs/security_log.jsonl"
@@ -12,3 +14,13 @@ BRUTE_FORCE_WINDOW_MINUTES = 10  # brute force detection window
 RATE_LIMIT_REQUESTS = 10         # max requests per IP per minute for web console
 RATE_LIMIT_WINDOW_SECONDS = 60
 PASSWORD_MIN_LENGTH = 8
+
+# P2: Persistent storage settings
+# Options: "json" (default, simple, human-readable) or "sqlite" (ACID, better concurrency)
+STORAGE_BACKEND = os.getenv("LAB_STORAGE_BACKEND", "json")
+STORAGE_DB = os.getenv("LAB_STORAGE_DB", "data/lab.db")
+
+# P2: Additional security settings
+AUTH_RATE_LIMIT_REQUESTS = 5      # max login attempts per IP per minute
+AUTH_RATE_LIMIT_WINDOW_SECONDS = 60
+CSRF_TOKEN_TTL_MINUTES = 30       # CSRF token validity
