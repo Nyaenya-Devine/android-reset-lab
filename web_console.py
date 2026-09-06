@@ -272,7 +272,9 @@ def collect_dashboard_data():
 
 
 def render_dashboard(session, message=""):
-    """Render data from the existing backend for an authorized session."""
+    """Render data from the existing backend for an authorized session.
+    P2: Includes CSRF token in forms
+    """
     data = collect_dashboard_data()
     events = data["events"]
     findings = data["findings"]
@@ -280,6 +282,8 @@ def render_dashboard(session, message=""):
     devices = data["devices"]
     requests = data["requests"]
     integrity_ok, integrity_info = data["integrity"]
+    # P2: CSRF token for form protection
+    csrf_token = session.get("csrf_token", "") if isinstance(session, dict) else ""
     severity_counts = Counter(event.get("severity", "UNKNOWN") for event in events)
     request_counts = Counter(req.get("status", "unknown") for req in requests.values())
     rules_fired = metrics.get("rules_fired", [])
@@ -376,6 +380,7 @@ def render_dashboard(session, message=""):
           <div class="eyebrow">Controlled action</div><h2>Request a simulated reset</h2>
           <p class="muted small">A second account must approve before execution. The simulation guard remains enforced by the workflow.</p>
           <form method="post" action="/request">
+            <input type="hidden" name="csrf_token" value="{html.escape(csrf_token, quote=True)}">
             <label for="device">Device</label>
             <select id="device" name="device" required {"disabled" if not options else ""}>
               <option value="">Select a device</option>{options}
@@ -390,7 +395,7 @@ def render_dashboard(session, message=""):
     <header class="topbar"><div class="shell topbar-inner"><div class="brand"><div class="brand-mark">AR</div>
       <div><div class="brand-title">{html.escape(config.LAB_NAME)}</div><div class="brand-subtitle">Security operations console</div></div></div>
       <div class="userbar"><span>Signed in as <strong>{html.escape(str(session.get("username", "—")))}</strong> · {html.escape(str(session.get("role", "—")))}</span>
-        <form method="post" action="/logout"><button class="button-secondary" type="submit">Log out</button></form></div>
+        <form method="post" action="/logout"><input type="hidden" name="csrf_token" value="{html.escape(csrf_token, quote=True)}"><button class="button-secondary" type="submit">Log out</button></form></div>
     </div></header>
     <main class="shell main">{flash}
       <section class="hero"><div class="eyebrow">Simulation control plane</div><h1>Good morning, {html.escape(str(session.get("username", "operator")))}</h1>
@@ -577,7 +582,8 @@ class Handler(BaseHTTPRequestHandler):
             if user is None or password is None or not user or not password:
                 self._page("Missing or invalid credentials", status=400)
                 return
-            ok, message = authentication.login(user, password)
+            # P2: Pass client IP for rate limiting around authentication
+            ok, message = authentication.login(user, password, client_ip=client_ip)
             if not ok:
                 security_logger.log_event(
                     "LOGIN_FAILED", user, f"web console: {message}", severity="WARNING"
@@ -604,7 +610,13 @@ class Handler(BaseHTTPRequestHandler):
 
         session, token = self._current_session()
         if path == "/logout":
+            # P2: CSRF protection for logout
             if session is not None and token:
+                csrf_form = self._value(form, "csrf_token", 64)
+                if not csrf_form or not authentication.validate_csrf_token(token, csrf_form):
+                    security_logger.log_event("CSRF_BLOCKED", session.get("username", "-"), "logout CSRF invalid", severity="WARNING")
+                    self._respond_dashboard(session, token, "CSRF validation failed", status=403)
+                    return
                 security_logger.log_event(
                     "LOGOUT",
                     session.get("username", "-"),
@@ -621,6 +633,12 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/request":
             if session is None or token is None:
                 self._send_html(render_login("Please sign in to request a reset."), status=401)
+                return
+            # P2: CSRF protection for state-changing request
+            csrf_form = self._value(form, "csrf_token", 64)
+            if not csrf_form or not authentication.validate_csrf_token(token, csrf_form):
+                security_logger.log_event("CSRF_BLOCKED", session.get("username", "-"), "request CSRF invalid", severity="WARNING")
+                self._respond_dashboard(session, token, "CSRF validation failed - please refresh", status=403)
                 return
             if not config.SIMULATION_MODE:
                 self._respond_dashboard(

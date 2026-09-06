@@ -7,7 +7,9 @@ import device_simulator
 
 @pytest.fixture(autouse=True)
 def clean_lab_state(tmp_path, monkeypatch):
-    """Give every test an isolated simulated data directory."""
+    """Give every test an isolated simulated data directory.
+    P2: Also isolates SQLite storage backend for persistence tests
+    """
     data_dir = tmp_path / "data"
     logs_dir = tmp_path / "logs"
 
@@ -39,5 +41,15 @@ def clean_lab_state(tmp_path, monkeypatch):
         "LOG_FILE",
         str(logs_dir / "security_log.jsonl")
     )
+    # P2: Isolate storage backend - force JSON for most tests for simplicity and isolation
+    monkeypatch.setattr(config, "STORAGE_BACKEND", "json")
+    monkeypatch.setattr(config, "STORAGE_DB", str(data_dir / "lab.db"))
+    # Clear rate limit stores for isolation
+    authentication._auth_rate_limit_store.clear()
+    try:
+        import web_console
+        web_console.rate_limit_store.clear()
+    except ImportError:
+        pass
 
     yield

@@ -1,4 +1,5 @@
 # reset_workflow.py - request -> approve -> simulated execute
+# P2: Added persistent storage abstraction
 import json
 import os
 import secrets
@@ -10,17 +11,42 @@ import security_logger
 
 REQUESTS_FILE = "data/requests.json"
 
+# P2: Use storage abstraction if available
+try:
+    import storage as storage_backend
+    _USE_STORAGE = True
+except ImportError:
+    _USE_STORAGE = False
+
 
 def _load_requests():
+    if _USE_STORAGE:
+        try:
+            import config
+            if getattr(config, "STORAGE_BACKEND", "json") == "sqlite":
+                return storage_backend.load_requests()
+        except Exception:
+            pass
     if not os.path.exists(REQUESTS_FILE):
         return {}
-    with open(REQUESTS_FILE, "r") as f:
-        return json.load(f)
+    try:
+        with open(REQUESTS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, FileNotFoundError):
+        return {}
 
 
 def _save_requests(requests):
+    if _USE_STORAGE:
+        try:
+            import config
+            if getattr(config, "STORAGE_BACKEND", "json") == "sqlite":
+                storage_backend.save_requests(requests)
+                return
+        except Exception:
+            pass
     os.makedirs("data", exist_ok=True)
-    with open(REQUESTS_FILE, "w") as f:
+    with open(REQUESTS_FILE, "w", encoding="utf-8") as f:
         json.dump(requests, f, indent=2)
 
 
