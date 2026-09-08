@@ -3,7 +3,7 @@
 pytest>=7.0.0
 
 # P3: Optional hardening (fallback to PBKDF2 if not installed)
-argon2-cffi>=21.3.0  # Argon2id - modern password hashing, env LAB_HASH_ALGO=argon2
+argon2-cffi>=25.1.0  # Argon2id - modern password hashing, env LAB_HASH_ALGO=argon2
 
 # Optional: for future enhancements
 # python-dotenv>=1.0.0  # For env var loading
