@@ -21,7 +21,7 @@ This lab never touches a real device — by design. Real wipes are destructive a
 ![MFA](https://img.shields.io/badge/MFA-TOTP%20sim-blueviolet)
 [![Release](https://img.shields.io/github/v/release/Nyaenya-Devine/android-reset-lab?label=release)](https://github.com/Nyaenya-Devine/android-reset-lab/releases/tag/v2.0)
 
-**🎥 Demo Video:** [Download v2.0 Demo (3.9MB)](https://github.com/Nyaenya-Devine/android-reset-lab/releases/download/v2.0/android-reset-lab-demo.mp4) | **📊 Dashboard:** Below
+**🖥️ Live console (hosted demo): [android-reset-lab.vercel.app](https://android-reset-lab.vercel.app)** | **🎥 Demo Video:** [Download v2.0 Demo (3.9MB)](https://github.com/Nyaenya-Devine/android-reset-lab/releases/download/v2.0/android-reset-lab-demo.mp4) | **📊 Dashboard:** Below
 
 ![Dashboard](dashboard.png)
 
@@ -330,7 +330,7 @@ python attacker_sim.py && python threat_detection.py && python reports.py
 **Nyaenya-Devine** — Defensive Security / Python / Detection Engineering
 
 - GitHub: [@Nyaenya-Devine](https://github.com/Nyaenya-Devine)
-- Project: [android-reset-lab](https://github.com/Nyaenya-Devine/android-reset-lab)
+- Project: [android-reset-lab — live console](https://android-reset-lab.vercel.app) · [source](https://github.com/Nyaenya-Devine/android-reset-lab)
 - Focus: Secure-by-design, testing security controls, red/blue team simulation
 
 **Open to:** SOC Analyst, Detection Engineer, AppSec Engineer, Security Engineer (Junior) roles in Nairobi / Remote
