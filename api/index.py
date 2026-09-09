@@ -45,10 +45,12 @@ config.STORAGE_DB = os.path.join(_TMP, "data", "lab.db")
 
 import authentication  # noqa: E402
 import device_simulator  # noqa: E402
+import reset_workflow  # noqa: E402
 
 authentication.USERS_FILE = os.path.join(_TMP, "data", "users.json")
 authentication.SESSIONS_FILE = os.path.join(_TMP, "data", "sessions.json")
 device_simulator.DEVICES_FILE = os.path.join(_TMP, "data", "devices.json")
+reset_workflow.REQUESTS_FILE = os.path.join(_TMP, "data", "requests.json")
 
 import seed_lab  # noqa: E402
 import web_console  # noqa: E402
