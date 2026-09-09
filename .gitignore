@@ -47,3 +47,4 @@ Thumbs.db
 # Keep dashboard screenshot but ignore other screenshots with spaces
 # Screenshot with spaces is deprecated, use dashboard.png
 Screenshot *.png
+.vercel

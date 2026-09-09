@@ -23,6 +23,20 @@ _TMP = "/tmp/android-reset-lab"
 os.makedirs(os.path.join(_TMP, "logs"), exist_ok=True)
 os.makedirs(os.path.join(_TMP, "data"), exist_ok=True)
 
+_orig_makedirs = os.makedirs
+
+
+def _tmp_makedirs(name, mode=0o777, exist_ok=False):
+    # Several lab modules mkdir relative dirs like "logs"/"data" against the
+    # working directory, which is read-only on Vercel. Redirect relative
+    # targets under /tmp; leave absolute paths untouched.
+    if not os.path.isabs(name):
+        name = os.path.join(_TMP, name)
+    return _orig_makedirs(name, mode=mode, exist_ok=exist_ok)
+
+
+os.makedirs = _tmp_makedirs
+
 import config  # noqa: E402
 
 config.LOG_FILE = os.path.join(_TMP, "logs", "security_log.jsonl")
@@ -39,11 +53,13 @@ device_simulator.DEVICES_FILE = os.path.join(_TMP, "data", "devices.json")
 import seed_lab  # noqa: E402
 import web_console  # noqa: E402
 
-# Seed the demo fleet + accounts once per cold start (idempotent).
+# Seed the demo fleet + accounts once per cold start (idempotent). If this
+# ever fails we still boot, but the traceback shows up in function logs.
 try:
     seed_lab.seed_all()
 except Exception:
-    pass
+    import traceback
+    traceback.print_exc()
 
 
 class _Capture(io.IOBase):
@@ -125,7 +141,8 @@ def _serve_request(method, raw_path, headers, body, client_ip):
     try:
         web_console.Handler(sock, (client_ip, 0), None)
     except Exception:
-        pass  # handler writes its own error page on failure
+        import traceback
+        traceback.print_exc()
     return _parse_response(sock.response_bytes())
 
 
