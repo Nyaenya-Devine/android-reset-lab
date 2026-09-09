@@ -1,11 +1,5 @@
 {
-  "version": 2,
-  "functions": {
-    "api/index.py": {
-      "runtime": "python3.9",
-      "maxDuration": 15
-    }
-  },
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "routes": [
     { "src": "/(.*)", "dest": "/api/index.py" }
   ]
