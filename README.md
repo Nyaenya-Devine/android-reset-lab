@@ -25,6 +25,25 @@ This lab never touches a real device — by design. Real wipes are destructive a
 
 ![Dashboard](dashboard.png)
 
+
+---
+
+## ▶️ Try the hosted simulation console (no name, no setup)
+
+**Live demo: https://android-reset-lab.vercel.app** — the same web console,
+hosted free on Vercel, running the simulation with seeded data.
+
+Demo accounts (simulation only — same defaults as `seed_lab.py`):
+
+| Username | Password | Role |
+| --- | --- | --- |
+| `que` | `LabRat!2026` | Admin |
+| `ops` | `OpsOps!123` | Operator |
+| `analyst` | `Analyst!2026` | Security analyst |
+
+> The hosted console is still **simulation only** — it never touches a real
+> device, and state resets on cold starts (by design for a demo).
+
 ---
 
 ## 👩‍💼 For Recruiters — 30 Second Summary
