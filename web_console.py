@@ -20,6 +20,16 @@ import reset_workflow
 import security_logger
 import threat_detection
 
+# God Mode observability (OTEL tracing + Prometheus metrics)
+try:
+    from observability import tracer as obs_tracer, metrics as obs_metrics, replay_engine as obs_replay
+    OBS_ENABLED = True
+except ImportError:
+    OBS_ENABLED = False
+    obs_tracer = None
+    obs_metrics = None
+    obs_replay = None
+
 
 MAX_REQUEST_BYTES = 4096
 SESSION_COOKIE = "session"
@@ -458,6 +468,19 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
+    def _send_text(self, body: str, content_type: str = "text/plain; charset=utf-8", status=200):
+        payload = body.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(payload)))
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(payload)
+
+    def _send_json(self, data, status=200):
+        self._send_text(__import__("json").dumps(data, indent=2), "application/json; charset=utf-8", status)
+
     def _page(self, msg="", status=200):
         """Compatibility helper for unauthenticated/error responses."""
         self._send_html(render_login(msg), status)
@@ -540,34 +563,144 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = urlsplit(self.path).path
+        start_ts = time.time()
+        span = None
+        if OBS_ENABLED and obs_tracer:
+            span = obs_tracer.start_span(f"GET {path}")
+            span.set_attribute("http.method", "GET")
+            span.set_attribute("http.path", path)
+
+        # God Mode: metrics endpoint (protected)
+        if path == "/metrics":
+            session, token = self._current_session()
+            if session is None or token is None:
+                if span:
+                    span.set_status("UNAUTHENTICATED"); obs_tracer.end_span(span)
+                self._send_text("Unauthorized", status=401)
+                return
+            session["_token"] = token
+            ok, _ = authorization.authorize(token, "view_dashboard")
+            if not ok:
+                if span:
+                    span.set_status("FORBIDDEN"); obs_tracer.end_span(span)
+                self._send_text("Forbidden", status=403)
+                return
+            if OBS_ENABLED and obs_metrics:
+                body = obs_metrics.prometheus_format()
+            else:
+                body = "# metrics disabled"
+            if span:
+                span.set_status("OK"); obs_tracer.end_span(span)
+            self._send_text(body, "text/plain; version=0.0.4; charset=utf-8")
+            return
+
+        # God Mode: observability traces
+        if path == "/api/traces":
+            session, token = self._current_session()
+            if session is None:
+                self._send_text("Unauthorized", status=401)
+                return
+            session["_token"] = token
+            ok, _ = authorization.authorize(token, "view_dashboard")
+            if not ok:
+                self._send_text("Forbidden", status=403)
+                return
+            data = obs_tracer.get_recent_spans(50) if OBS_ENABLED else []
+            if span:
+                span.set_status("OK"); obs_tracer.end_span(span)
+            self._send_json({"spans": data})
+            return
+
+        # God Mode: attack replay
+        if path.startswith("/api/replay"):
+            session, token = self._current_session()
+            if session is None:
+                self._send_text("Unauthorized", status=401)
+                return
+            session["_token"] = token
+            ok, _ = authorization.authorize(token, "view_logs")
+            if not ok:
+                self._send_text("Forbidden", status=403)
+                return
+            qs = parse_qs(urlsplit(self.path).query)
+            entry_id = (qs.get("id") or [None])[0]
+            if OBS_ENABLED and obs_replay:
+                if entry_id:
+                    result = obs_replay.replay_attack(entry_id)
+                else:
+                    result = obs_replay.replay_all_attacks()
+            else:
+                result = {"error": "replay disabled"}
+            if span:
+                span.set_status("OK"); obs_tracer.end_span(span)
+            self._send_json(result)
+            return
+
         if path not in ("/", "/dashboard", "/login"):
+            if OBS_ENABLED and obs_metrics:
+                obs_metrics.increment("android_reset_lab_requests_total", labels={"path": path, "status": "404"})
+            if span:
+                span.set_status("NOT_FOUND"); obs_tracer.end_span(span)
             self._page("Page not found", status=404)
             return
         session, token = self._current_session()
         if path == "/login" and session is None:
+            if OBS_ENABLED and obs_metrics:
+                obs_metrics.increment("android_reset_lab_requests_total", labels={"path": path, "status": "200"})
+                obs_metrics.observe("android_reset_lab_duration_ms", (time.time()-start_ts)*1000, labels={"path": path})
+            if span:
+                span.set_status("OK"); obs_tracer.end_span(span)
             self._send_html(render_login())
             return
         if session is None:
+            if OBS_ENABLED and obs_metrics:
+                obs_metrics.increment("android_reset_lab_requests_total", labels={"path": path, "status": "401"})
+            if span:
+                span.set_status("UNAUTHENTICATED"); obs_tracer.end_span(span)
             self._send_html(render_login("Please sign in to continue."), status=401)
             return
         session["_token"] = token
         ok, reason = authorization.authorize(token, "view_dashboard")
         if not ok:
+            if OBS_ENABLED and obs_metrics:
+                obs_metrics.increment("android_reset_lab_requests_total", labels={"path": path, "status": "403"})
+            if span:
+                span.set_status("FORBIDDEN"); obs_tracer.end_span(span)
             self._send_html(render_login("Access denied."), status=403)
             return
+        if OBS_ENABLED and obs_metrics:
+            obs_metrics.increment("android_reset_lab_requests_total", labels={"path": path, "status": "200"})
+            obs_metrics.observe("android_reset_lab_duration_ms", (time.time()-start_ts)*1000, labels={"path": path})
+        if span:
+            span.set_attribute("user", session.get("username","-"))
+            span.set_status("OK"); obs_tracer.end_span(span)
         self._respond_dashboard(session, token)
 
     def do_POST(self):
         client_ip = self.client_address[0]
+        start_ts = time.time()
+        span = None
+        if OBS_ENABLED and obs_tracer:
+            span = obs_tracer.start_span(f"POST {urlsplit(self.path).path}")
+            span.set_attribute("http.method", "POST")
+            span.set_attribute("client.ip", client_ip)
         if is_rate_limited(client_ip):
             security_logger.log_event(
                 "RATE_LIMITED", client_ip, "web console rate limit exceeded", severity="WARNING"
             )
+            if OBS_ENABLED and obs_metrics:
+                obs_metrics.increment("android_reset_lab_requests_total", labels={"path": "rate_limited", "status": "429"})
+            if span:
+                span.set_status("RATE_LIMITED"); obs_tracer.end_span(span)
             self._page("Too many requests. Please wait a minute and try again.", status=429)
             return
 
         form, error = self._parse_form()
         if error:
+            if OBS_ENABLED and obs_metrics:
+                obs_metrics.increment("android_reset_lab_requests_total", labels={"path": "parse_error", "status": "400"})
+            if span:
+                span.set_status("BAD_REQUEST"); obs_tracer.end_span(span)
             self._page(error, status=413 if error == "Request too large" else 400)
             return
         path = urlsplit(self.path).path
@@ -598,10 +731,18 @@ class Handler(BaseHTTPRequestHandler):
                 "web console login",
                 role=session.get("role", "-") if session else "-",
             )
+            if OBS_ENABLED and obs_metrics:
+                obs_metrics.increment("android_reset_lab_requests_total", labels={"path": "/login", "status": "200"})
+                obs_metrics.observe("android_reset_lab_duration_ms", (time.time()-start_ts)*1000, labels={"path": "/login"})
             if session is None:
+                if span:
+                    span.set_status("ERROR"); obs_tracer.end_span(span)
                 self._page("Unable to create session", status=500)
                 return
             session["_token"] = token
+            if span:
+                span.set_attribute("user", user)
+                span.set_status("OK"); obs_tracer.end_span(span)
             self._send_html(
                 render_dashboard(session),
                 extra_headers=[("Set-Cookie", self._session_cookie(token, config.SESSION_TTL_MINUTES * 60))],
@@ -632,28 +773,42 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/request":
             if session is None or token is None:
+                if span:
+                    span.set_status("UNAUTHENTICATED"); obs_tracer.end_span(span)
                 self._send_html(render_login("Please sign in to request a reset."), status=401)
                 return
             # P2: CSRF protection for state-changing request
             csrf_form = self._value(form, "csrf_token", 64)
             if not csrf_form or not authentication.validate_csrf_token(token, csrf_form):
                 security_logger.log_event("CSRF_BLOCKED", session.get("username", "-"), "request CSRF invalid", severity="WARNING")
+                if span:
+                    span.set_status("CSRF_BLOCKED"); obs_tracer.end_span(span)
                 self._respond_dashboard(session, token, "CSRF validation failed - please refresh", status=403)
                 return
             if not config.SIMULATION_MODE:
+                if span:
+                    span.set_status("GUARD"); obs_tracer.end_span(span)
                 self._respond_dashboard(
                     session, token, "Simulation guard: console actions are disabled.", status=503
                 )
                 return
             authorized_session, reason = self._authorize(token, "request_reset")
             if reason:
+                if span:
+                    span.set_status("FORBIDDEN"); obs_tracer.end_span(span)
                 self._respond_dashboard(session, token, "Request denied: " + reason, status=403)
                 return
             device = self._value(form, "device", 20)
             if device is None or not device or any(ord(char) < 32 for char in device):
+                if span:
+                    span.set_status("BAD_REQUEST"); obs_tracer.end_span(span)
                 self._respond_dashboard(session, token, "Missing or invalid device.", status=400)
                 return
             ok, info = reset_workflow.request_reset(token, device)
+            if OBS_ENABLED and obs_metrics:
+                obs_metrics.increment("android_reset_lab_requests_total", labels={"path": "/request", "status": "200" if ok else "403"})
+            if span:
+                span.set_status("OK" if ok else "FORBIDDEN"); obs_tracer.end_span(span)
             if ok:
                 message = "Request created: " + info + ". A second account must approve it."
                 self._respond_dashboard(session, token, message)
@@ -661,6 +816,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._respond_dashboard(session, token, "Request denied: " + info, status=403)
             return
 
+        if OBS_ENABLED and obs_metrics:
+            obs_metrics.increment("android_reset_lab_requests_total", labels={"path": path, "status": "404"})
+        if span:
+            span.set_status("NOT_FOUND"); obs_tracer.end_span(span)
         self._page("Page not found", status=404)
 
 
