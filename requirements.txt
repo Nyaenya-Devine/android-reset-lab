@@ -1,9 +1,8 @@
-# Android Reset Lab - Dependencies
-# Core lab uses only Python stdlib, but tests need pytest
-pytest>=9.1.1
+# Android Reset Lab - Dependencies (pinned for reproducibility + pip-audit)
+pytest==9.1.1
+argon2-cffi==25.1.0
+bandit==1.8.6
+pip-audit==2.9.0
 
-# P3: Optional hardening (fallback to PBKDF2 if not installed)
-argon2-cffi>=25.1.0  # Argon2id - modern password hashing, env LAB_HASH_ALGO=argon2
-
-# Optional: for future enhancements
-# python-dotenv>=1.0.0  # For env var loading
+# Optional: future enhancements
+# python-dotenv>=1.0.0

@@ -19,7 +19,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 # --- Route lab file I/O into /tmp (Vercel's only writable directory) ------
-_TMP = "/tmp/android-reset-lab"
+_TMP = "/tmp/android-reset-lab"  # nosec B108 - Vercel requires /tmp, not configurable
 os.makedirs(os.path.join(_TMP, "logs"), exist_ok=True)
 os.makedirs(os.path.join(_TMP, "data"), exist_ok=True)
 
