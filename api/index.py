@@ -27,9 +27,6 @@ _orig_makedirs = os.makedirs
 
 
 def _tmp_makedirs(name, mode=0o777, exist_ok=False):
-    # Several lab modules mkdir relative dirs like "logs"/"data" against the
-    # working directory, which is read-only on Vercel. Redirect relative
-    # targets under /tmp; leave absolute paths untouched.
     if not os.path.isabs(name):
         name = os.path.join(_TMP, name)
     return _orig_makedirs(name, mode=mode, exist_ok=exist_ok)
@@ -55,8 +52,6 @@ reset_workflow.REQUESTS_FILE = os.path.join(_TMP, "data", "requests.json")
 import seed_lab  # noqa: E402
 import web_console  # noqa: E402
 
-# Seed the demo fleet + accounts once per cold start (idempotent). If this
-# ever fails we still boot, but the traceback shows up in function logs.
 try:
     seed_lab.seed_all()
 except Exception:
@@ -65,8 +60,6 @@ except Exception:
 
 
 class _Capture(io.IOBase):
-    """Write-only buffer that keeps its bytes even after close()."""
-
     def __init__(self):
         self._buf = bytearray()
 
@@ -79,8 +72,6 @@ class _Capture(io.IOBase):
 
 
 class _ShimSocket:
-    """Minimal TCP-socket stand-in for BaseHTTPRequestHandler."""
-
     def __init__(self, request_bytes):
         self._r = io.BytesIO(request_bytes)
         self._w = _Capture()
@@ -94,8 +85,6 @@ class _ShimSocket:
         return ("127.0.0.1", 0)
 
     def sendall(self, data):
-        # Python 3.13's StreamRequestHandler writes via _SocketWriter, which
-        # calls socket.sendall directly.
         self._w.write(data)
 
     def close(self):
@@ -115,10 +104,8 @@ def _parse_response(raw):
     lines = head.split(b"\r\n")
     parts = lines[0].split(b" ", 2)
     code = 500
-    reason = "Internal Server Error"
     try:
         code = int(parts[1])
-        reason = parts[2].decode("utf-8", "replace") if len(parts) > 2 else ""
     except (IndexError, ValueError):
         pass
     headers = []
@@ -149,7 +136,9 @@ def _serve_request(method, raw_path, headers, body, client_ip):
 
 
 def app(environ, start_response):
-    method = (environ.get("REQUEST_METHOD") or "GET").upper()
+    orig_method = (environ.get("REQUEST_METHOD") or "GET").upper()
+    # Vercel health checks and curl -I use HEAD; treat HEAD as GET internally
+    method = "GET" if orig_method == "HEAD" else orig_method
     path = environ.get("PATH_INFO") or "/"
     query = environ.get("QUERY_STRING") or ""
     raw_path = path + ("?" + query if query else "")
@@ -172,7 +161,10 @@ def app(environ, start_response):
                  or environ.get("REMOTE_ADDR") or "127.0.0.1")
     code, resp_headers, resp_body = _serve_request(
         method, raw_path, headers, body, client_ip)
-    reason = "OK" if 200 <= code < 300 else ("Found" if code == 302 else "Error")
+    # For HEAD, strip body but keep headers/status
+    if orig_method == "HEAD":
+        resp_body = b""
+    reason = "OK" if 200 <= code < 300 else ("Found" if code == 302 else "Unauthorized" if code == 401 else "Error")
     status = f"{code} {reason}"
     start_response(status, resp_headers)
     return [resp_body]
