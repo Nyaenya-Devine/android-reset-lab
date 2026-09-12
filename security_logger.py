@@ -96,6 +96,36 @@ def _ship_log(entry):
         except OSError:
             pass  # Don't fail logging if shipping fails
 
+def _append_merkle(entry: dict):
+    """P4: Append to Merkle transparency ledger if available, fail-open for safety."""
+    try:
+        from merkle_ledger import transparency_ledger
+        # Ensure ledger uses isolated path if config.LOG_FILE is patched
+        try:
+            import config as _cfg
+            log_file = getattr(_cfg, "LOG_FILE", "logs/security_log.jsonl")
+            log_dir = os.path.dirname(log_file) or "logs"
+            # If log_dir is temp, re-resolve ledger paths to that dir
+            if log_dir != "logs" and ("/tmp" in log_dir or os.path.isabs(log_dir)):  # nosec B108
+                # Recreate ledger with isolated paths if needed
+                from merkle_ledger import TransparencyLedger
+                isolated_ledger_path = os.path.join(log_dir, "merkle_ledger.jsonl")
+                isolated_checkpoint_path = os.path.join(log_dir, "checkpoints.jsonl")
+                # If current global ledger points elsewhere, create isolated one
+                if transparency_ledger.ledger_path != isolated_ledger_path:
+                    isolated = TransparencyLedger(
+                        ledger_path=isolated_ledger_path,
+                        checkpoint_path=isolated_checkpoint_path,
+                    )
+                    isolated.append(entry)
+                    return
+        except Exception:
+            pass
+        transparency_ledger.append(entry)
+    except Exception:
+        # Fail-open: audit log must not break if merkle fails
+        pass
+
 def log_event(event_type, actor, outcome, severity="INFO",
                  role="-", device_id="-", request_id="-", timestamp=None, _allow_custom_timestamp=False):
     """Write one tamper-evident (and optionally tamper-proof with HMAC) event.
@@ -142,6 +172,9 @@ def log_event(event_type, actor, outcome, severity="INFO",
     
     # P3: Ship to SIEM
     _ship_log(entry)
+
+    # P4: Merkle transparency ledger (append-only, inclusion proofs)
+    _append_merkle(entry)
     
     return entry
 

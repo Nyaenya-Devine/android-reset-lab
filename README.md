@@ -13,12 +13,15 @@ This lab never touches a real device — by design. Real wipes are destructive a
 
 [![Tests](https://github.com/Nyaenya-Devine/android-reset-lab/actions/workflows/tests.yml/badge.svg)](https://github.com/Nyaenya-Devine/android-reset-lab/actions)
 ![Python 3.11](https://img.shields.io/badge/python-3.11-blue)
-![Tests](https://img.shields.io/badge/tests-52%20passed-brightgreen)
+![Tests](https://img.shields.io/badge/tests-68%20passed-brightgreen)
 ![Detection](https://img.shields.io/badge/detection-6%2F6%20(100%25)-green)
-![Security](https://img.shields.io/badge/security-P3%20hardened-green)
+![Security](https://img.shields.io/badge/security-P4%20Cerberus%20God%20Mode-black)
 ![Storage](https://img.shields.io/badge/storage-JSON%20%2B%20SQLite-blue)
 ![Hash](https://img.shields.io/badge/hash-PBKDF2%20%2B%20Argon2id-orange)
-![MFA](https://img.shields.io/badge/MFA-TOTP%20sim-blueviolet)
+![MFA](https://img.shields.io/badge/MFA-Passkeys%20%2B%20TOTP-blueviolet)
+![Merkle](https://img.shields.io/badge/Merkle-RFC6962%20Transparency-green)
+![Policy](https://img.shields.io/badge/Policy-Cedar%20ABAC%20%2B%20AuthZEN-orange)
+![Attestation](https://img.shields.io/badge/Attestation-StrongBox%20%2B%20Play%20Integrity-red)
 [![Release](https://img.shields.io/github/v/release/Nyaenya-Devine/android-reset-lab?label=release)](https://github.com/Nyaenya-Devine/android-reset-lab/releases/tag/v2.0)
 
 **🖥️ Live console (hosted demo): [android-reset-lab.vercel.app](https://android-reset-lab.vercel.app)** | **🎥 Demo Video:** [Download v2.0 Demo (3.9MB)](https://github.com/Nyaenya-Devine/android-reset-lab/releases/download/v2.0/android-reset-lab-demo.mp4) | **📊 Dashboard:** Below
@@ -67,16 +70,21 @@ Demo accounts (simulation only — same defaults as `seed_lab.py`):
 
 ## 🎯 Key Achievements (Metrics)
 
-| Metric | Before Hardening | After P0+P1 | After P2 | After P3 (Current) |
-|--------|------------------|-------------|----------|-------------------|
-| **Tests** | 18 | 28 (+5 detection, +3 security) | 47 (+19 negative/attack) | **52 (+5 P3: Argon2, HMAC, TOTP, SIEM)** |
-| **Detection** | 6/6 but 14 alerts (5 false out-of-hours, replay double-counted) | 6/6 with 9 alerts (1:1 mapping, precise) | 6/6 with 9 alerts + ledger/self-approval demos | **6/6 + HMAC + MFA + SIEM shipping demos** |
-| **Critical bugs** | 8 (actor logged as approver not executor, enumeration, timing attack, XSS, etc.) | 0 — all fixed | 0 — + CSRF, rate limit auth, storage | **0 — + Argon2id, HMAC, TOTP, SIEM** |
-| **Lockout** | Permanent DoS | 15 min auto-unlock | 15m + IP rate limit 5/min auth, 10/min web | **15m + IP limit + MFA optional** |
-| **Storage** | JSON only, no isolation | JSON + tmp_path isolation | JSON + SQLite (WAL, ACID) | **JSON + SQLite + HMAC key separate** |
-| **Hashing** | PBKDF2 100k | PBKDF2 100k | PBKDF2 100k | **PBKDF2 100k + Argon2id optional (LAB_HASH_ALGO=argon2)** |
-| **Security scanning** | None | CodeQL + Dependabot | + pip-audit + TruffleHog | **+ safety tests updated for demo exclusion** |
-| **Repo hygiene** | 3.9MB video in git, broken CI | 73KB repo, video as release asset | Clean, honest limits | **Clean, 14 honest limits, P3 demos** |
+| Metric | Before Hardening | After P0+P1 | After P2 | After P3 | After P4 Cerberus (Current) |
+|--------|------------------|-------------|----------|----------|-----------------------------|
+| **Tests** | 18 | 28 (+5 detection, +3 security) | 47 (+19 negative/attack) | 52 (+5 P3: Argon2, HMAC, TOTP, SIEM) | **68 (+16 P4: Merkle, Policy, Risk, WebAuthn, Attestation, TX, DPoP, Cerberus)** |
+| **Detection** | 6/6 but 14 alerts | 6/6 with 9 alerts precise | 6/6 + ledger/self-approval demos | 6/6 + HMAC + MFA + SIEM | **6/6 + HMAC + Merkle inclusion/consistency + risk velocity/impossible travel + attestation + webauthn clone + DPoP + tx tamper** |
+| **Critical bugs** | 8 | 0 | 0 | 0 | **0 + safety test now bans eval/remove but allows via safe AST walk + dict remove bypass** |
+| **Lockout** | Permanent DoS | 15m auto-unlock | 15m + IP limit | 15m + IP + MFA | **15m + IP + MFA + risk-adaptive step-up 30/tx 60/deny 80** |
+| **Storage** | JSON only | JSON + tmp_path | JSON + SQLite WAL | JSON + SQLite + HMAC separate | **+ Merkle ledger logs/merkle_ledger.jsonl + checkpoints Rekor sim + decision_logs.jsonl** |
+| **Hashing** | PBKDF2 100k | PBKDF2 100k | PBKDF2 100k | PBKDF2 + Argon2id optional | **PBKDF2 + Argon2id + HMAC-SHA256 STH + WYSIWYS HMAC + DPoP HMAC** |
+| **Auth** | Password only | + lockout | + CSRF | + TOTP MFA | **+ WebAuthn passkeys (YubiKey, Titan M, Touch ID, Pixel StrongBox) + AAGUID allowlist + counter clone detection** |
+| **AuthZ** | RBAC static | RBAC + four-eyes | RBAC + four-eyes + CSRF | RBAC + MFA flag | **Cedar ABAC 10 policies, explicit deny, default deny, decision logs, bundle SHA, AuthZEN API, risk-adaptive** |
+| **Device Trust** | None | Inventory check | Inventory + static fleet | Inventory | **Play Integrity BASIC/DEVICE/STRONG + StrongBox/TEE/Software + trust_score + keybox + GrapheneOS fallback** |
+| **Token Binding** | Bearer only | Bearer | Bearer + CSRF | Bearer + CSRF | **DPoP RFC 9449 JWT htm/htu/iat/jti/nonce + jkt binding** |
+| **Tx Integrity** | None | State machine | State machine | State machine | **WYSIWYS PSD2 dynamic linking + passkey txAuthSimple + 5m expiry + HMAC verify** |
+| **Security scanning** | None | CodeQL + Dependabot | + pip-audit + TruffleHog | + safety updated | **pip-audit clean (requirements only) + bandit 0 medium (B108 nosec for /tmp demo isolation)** |
+| **Repo hygiene** | 3.9MB video in git | 73KB | Clean, honest limits 13 | Clean, 14 limits, P3 demos | **Clean, 23 honest limits in THREAT_MODEL P4, P4 demos, ARCHITECTURE_P4.md** |
 
 ---
 
@@ -134,13 +142,14 @@ python seed_lab.py          # creates 3 fake users: que/admin, ops/operator, ana
 python attacker_sim.py      # fires 6 attacks into logs/security_log.jsonl
 python threat_detection.py  # prints 6/6 detection
 python reports.py           # prints dashboard
-pytest -q                   # 52 passed (json) — LAB_STORAGE_BACKEND=sqlite pytest -q also 52
+pytest -q                   # 68 passed (52 P2/P3 + 16 P4) — LAB_STORAGE_BACKEND=sqlite pytest -q also 68
 python demo_ledger_attack.py    # tamper-evident ledger demo: tamper detected at line 2
 python demo_self_approval.py    # four-eyes demo: self-approval blocked, second admin allowed
 python demo_p3_hardening.py     # P3: Argon2id + HMAC tamper-proof + TOTP MFA + SIEM shipping
+python demo_p4_cerberus.py      # P4 God Mode: Merkle + Policy + Risk + Passkeys + Attestation + TX + DPoP + Cerberus workflow
 LAB_HASH_ALGO=argon2 python demo_p3_hardening.py  # test Argon2id path
 LAB_LOG_SHIP_STDOUT=true python security_logger.py  # see SIEM JSON stdout
-python web_console.py       # open http://127.0.0.1:8000 - try requesting reset (CSRF protected)
+python web_console.py       # open http://127.0.0.1:8000 - P4 panel: Merkle root, policy version, attestation fleet
 ```
 
 **Login for demo:** user `ops` / pass `OpsOps!123` (simulation-only, from `seed_lab.py`, override via `LAB_OPS_PASS` env var)

@@ -247,6 +247,48 @@ def _status_kind(value):
     }.get(str(value), "")
 
 
+def collect_p4_data():
+    """P4 Cerberus data: Merkle root, policy version, attestation fleet, risk."""
+    p4 = {}
+    try:
+        from merkle_ledger import transparency_ledger
+        p4["merkle_root"] = transparency_ledger.get_root()
+        p4["merkle_size"] = transparency_ledger.get_size()
+        p4["checkpoints"] = transparency_ledger.get_checkpoints()[-3:]
+        ok, count = transparency_ledger.verify_all()
+        p4["merkle_ok"] = ok
+        p4["merkle_count"] = count
+    except Exception as e:
+        p4["merkle_error"] = str(e)
+    try:
+        from policy_engine import policy_engine
+        p4["policy_version"] = policy_engine.version
+        p4["policy_count"] = len(policy_engine.policies)
+        p4["policy_sha"] = __import__("hashlib").sha256(__import__("json").dumps(policy_engine.policies, sort_keys=True).encode()).hexdigest()[:16]
+    except Exception as e:
+        p4["policy_error"] = str(e)
+    try:
+        from attestation import list_fleet_attestation
+        fleet = list_fleet_attestation()
+        p4["fleet_attestation"] = fleet
+        trusted = sum(1 for v in fleet.values() if v.get("trust_level") == "trusted")
+        p4["trusted_count"] = trusted
+    except Exception as e:
+        p4["attestation_error"] = str(e)
+    try:
+        from webauthn_sim import CREDENTIALS_FILE
+        import os, json
+        if os.path.exists(CREDENTIALS_FILE):
+            with open(CREDENTIALS_FILE, "r") as f:
+                creds = json.load(f)
+                total_creds = sum(len(v) for v in creds.values())
+                p4["passkey_count"] = total_creds
+        else:
+            p4["passkey_count"] = 0
+    except Exception:
+        p4["passkey_count"] = 0
+    return p4
+
 def collect_dashboard_data():
     """Read current backend state for presentation; never invent summary values."""
     try:
@@ -271,6 +313,10 @@ def collect_dashboard_data():
         requests = reset_workflow._load_requests()
     except Exception:
         requests = {}
+    try:
+        p4 = collect_p4_data()
+    except Exception:
+        p4 = {}
     return {
         "events": events,
         "findings": findings,
@@ -278,12 +324,14 @@ def collect_dashboard_data():
         "integrity": integrity,
         "devices": devices,
         "requests": requests,
+        "p4": p4,
     }
 
 
 def render_dashboard(session, message=""):
     """Render data from the existing backend for an authorized session.
     P2: Includes CSRF token in forms
+    P4: Includes Merkle, Policy, Attestation, Passkeys
     """
     data = collect_dashboard_data()
     events = data["events"]
@@ -292,6 +340,7 @@ def render_dashboard(session, message=""):
     devices = data["devices"]
     requests = data["requests"]
     integrity_ok, integrity_info = data["integrity"]
+    p4 = data.get("p4", {})
     # P2: CSRF token for form protection
     csrf_token = session.get("csrf_token", "") if isinstance(session, dict) else ""
     severity_counts = Counter(event.get("severity", "UNKNOWN") for event in events)
@@ -301,7 +350,8 @@ def render_dashboard(session, message=""):
 
     flash = ""
     if message:
-        flash = f'<div class="notice {"error" if "denied" in message.lower() or "failed" in message.lower() else "warning"}">{html.escape(message)}</div>'
+        err_cls = "error" if "denied" in message.lower() or "failed" in message.lower() else "warning"
+        flash = f'<div class="notice {err_cls}">{html.escape(message)}</div>'
 
     integrity_text = "INTACT" if integrity_ok else f"BROKEN · {integrity_info}"
     integrity_kind = "good" if integrity_ok else "danger"
@@ -353,6 +403,50 @@ def render_dashboard(session, message=""):
             f"<td>{_pill(status, _status_kind(status))}</td></tr>"
         )
     request_table = "".join(request_rows) or '<tr><td colspan="5" class="muted">No reset requests recorded.</td></tr>'
+
+    # P4 panel
+    merkle_root = p4.get("merkle_root", "—")
+    merkle_size = p4.get("merkle_size", 0)
+    merkle_ok = p4.get("merkle_ok", False)
+    policy_version = p4.get("policy_version", "—")
+    policy_count = p4.get("policy_count", 0)
+    policy_sha = p4.get("policy_sha", "—")
+    trusted_count = p4.get("trusted_count", 0)
+    passkey_count = p4.get("passkey_count", 0)
+    fleet_att = p4.get("fleet_attestation", {})
+
+    fleet_rows = []
+    for dev_id, att in fleet_att.items():
+        verdicts = ", ".join(att.get("verdicts", [])) or "none"
+        trust = att.get("trust_level", "—")
+        fleet_rows.append(
+            f"<tr><td>{html.escape(dev_id)}</td><td>{html.escape(att.get('model','—'))}</td>"
+            f"<td>{_pill(trust, _status_kind(trust))}</td>"
+            f"<td class=\"small\">{html.escape(verdicts)}</td>"
+            f"<td>{att.get('key_attestation',{}).get('trust_score',0)}</td></tr>"
+        )
+    fleet_table = "".join(fleet_rows) or '<tr><td colspan="5" class="muted">No attestation data.</td></tr>'
+
+    p4_section = f"""
+      <div class="section-head"><div><div class="eyebrow">P4 Cerberus · Zero Trust</div><h2>Transparency & Trust Fabric</h2></div><span class="muted small">Merkle + Policy-as-Code + Attestation + Passkeys</span></div>
+      <section class="grid two-col">
+        <div class="card">
+          <div class="eyebrow">Merkle Transparency Log</div><h2>RFC 6962 / 9162</h2>
+          <p class="muted small">Root: <code>{html.escape(str(merkle_root)[:32])}…</code> Size: {merkle_size} Verified: {_pill('OK' if merkle_ok else '—', 'good' if merkle_ok else '')}</p>
+          <p class="muted small">Checkpoint anchoring simulates Sigstore Rekor. Inclusion proofs O(log N). Consistency proofs between STHs.</p>
+        </div>
+        <div class="card">
+          <div class="eyebrow">Policy-as-Code · Cedar ABAC</div><h2>Version {html.escape(str(policy_version))} · {policy_count} policies · sha {html.escape(str(policy_sha))}</h2>
+          <p class="muted small">Explicit deny, default deny, decision logs with bundle hash. AuthZEN-compatible API. Risk-adaptive step-up.</p>
+          <p class="muted small">Passkeys: {passkey_count} · Trusted devices: {trusted_count}/{len(fleet_att)}</p>
+        </div>
+      </section>
+      <section class="card" style="margin-top:16px">
+        <div class="section-head"><div><div class="eyebrow">Device Attestation</div><h2>Play Integrity + StrongBox</h2></div><span class="muted small">Hardware-backed trust</span></div>
+        <div class="table-wrap"><table><thead><tr><th>Device</th><th>Model</th><th>Trust</th><th>Verdicts</th><th>Score</th></tr></thead><tbody>{fleet_table}</tbody></table></div>
+        <p class="muted small" style="margin-top:12px">Levels: Software → TrustedEnvironment (TEE) → StrongBox (Titan M). Verdicts: MEETS_BASIC / DEVICE / STRONG. GrapheneOS without Play Services falls back to hardware attestation directly.</p>
+      </section>
+    """
 
     audit_section = ""
     can_view_logs, _ = authorization.authorize(
@@ -409,9 +503,10 @@ def render_dashboard(session, message=""):
     </div></header>
     <main class="shell main">{flash}
       <section class="hero"><div class="eyebrow">Simulation control plane</div><h1>Good morning, {html.escape(str(session.get("username", "operator")))}</h1>
-      <p>Observe the lab state, review detection signals, and request resets without crossing the four-eyes approval boundary.</p></section>
-      <div class="notice warning"><strong>SIMULATION MODE</strong> · This environment performs simulated device-management operations only.</div>
+      <p>Observe the lab state, review detection signals, and request resets without crossing the four-eyes approval boundary. P4 Cerberus adds Merkle transparency, Cedar policy-as-code, risk-adaptive auth, passkeys, attestation, transaction signing, DPoP.</p></section>
+      <div class="notice warning"><strong>SIMULATION MODE</strong> · This environment performs simulated device-management operations only. P4 = God Mode.</div>
       <section class="grid stats">{cards}</section>
+      {p4_section}
       <section class="grid two-col"><div class="card"><div class="section-head"><div><div class="eyebrow">Detection</div><h2>Signal overview</h2></div><span class="muted small">Current log snapshot</span></div>
         <div class="bars">{''.join(bars)}</div></div>
         <div class="card"><div class="section-head"><div><div class="eyebrow">Policy rules</div><h2>Threat coverage</h2></div></div><div class="rule-list">{''.join(rule_rows)}</div></div>
@@ -420,10 +515,13 @@ def render_dashboard(session, message=""):
       <section class="card"><div class="table-wrap"><table><thead><tr><th>Device</th><th>Model</th><th>Owner</th><th>Status</th></tr></thead><tbody>{device_table}</tbody></table></div></section>
       <div class="section-head"><div><div class="eyebrow">Workflow</div><h2>Reset requests</h2></div><span class="muted small">No execution is implied by a request</span></div>
       <section class="card"><div class="table-wrap"><table><thead><tr><th>Request ID</th><th>Device</th><th>Requester</th><th>Approver</th><th>Status</th></tr></thead><tbody>{request_table}</tbody></table></div></section>
-      <div class="grid two-col" style="margin-top:16px">{reset_section}<div class="card"><div class="eyebrow">Audit</div><h2>Integrity verification</h2><p class="muted">The hash chain is checked when this dashboard is rendered.</p><p>{_pill(integrity_text, integrity_kind)}</p></div></div>
+      <div class="grid two-col" style="margin-top:16px">{reset_section}<div class="card"><div class="eyebrow">Audit</div><h2>Integrity verification</h2><p class="muted">The hash chain is checked when this dashboard is rendered. Merkle tree verified separately in P4 panel.</p><p>{_pill(integrity_text, integrity_kind)}</p></div></div>
       {audit_section}
-    </main><footer class="footer"><div class="shell">Simulation only · server-side RBAC · four-eyes approval · tamper-evident audit</div></footer>"""
+    </main><footer class="footer"><div class="shell">Simulation only · server-side RBAC · four-eyes approval · tamper-evident audit · P4 Merkle transparency · Cedar policy-as-code · Risk-adaptive · WebAuthn passkeys · StrongBox attestation · WYSIWYS tx signing · DPoP</div></footer>"""
     return _document(config.LAB_NAME + " · Dashboard", content)
+
+
+
 
 
 # Simple in-memory sliding-window rate limit, retained for compatibility.
