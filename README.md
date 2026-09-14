@@ -1,4 +1,6 @@
-# 🛡️ Android Reset Lab — Secure Device Management Simulation
+# 🛡️ Android Reset Lab — Secure Device Management Simulation (Merged into Chokepoint v3.0)
+
+> **Status:** Merged — This Python simulation (6/6 attacks detected, 68 tests, P4 Cerberus God Mode) is now the **simulation engine** for **Chokepoint v3.0** (github.com/Nyaenya-Devine/chokepoint) — the live Next.js product with dual-control 4-eyes, SHA-256 hash-chained HMAC-signed ledger, anomaly detection, RBAC, 26 routes, PWA. Same core: dual-control + tamper-evident audit. Vercel cleaned: android-reset-lab.vercel.app deleted, chokepoint-demo.vercel.app is single source of truth. This repo kept as archived reference for Python proof.
 
 > **One-line pitch:** I built a simulation of an enterprise MDM reset system that *prevents* single-person abuse through authentication, dual-control approval, and tamper-evident audit logs — then proved it works by attacking it myself (6/6 attacks detected).
 
