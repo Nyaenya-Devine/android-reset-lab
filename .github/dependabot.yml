@@ -1,26 +1,50 @@
 version: 2
 updates:
-  - package-ecosystem: "pip"
+  - package-ecosystem: "npm"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "06:00"
-    open-pull-requests-limit: 5
+      time: "09:00"
+      timezone: "Africa/Nairobi"
+    open-pull-requests-limit: 10
     labels:
       - "dependencies"
-      - "python"
+      - "security"
+      - "npm"
     commit-message:
       prefix: "chore"
       include: "scope"
+    reviewers:
+      - "Nyaenya-Devine"
+    groups:
+      dev-dependencies:
+        patterns:
+          - "@types/*"
+          - "eslint*"
+          - "tailwindcss"
+        update-types:
+          - "minor"
+          - "patch"
+      electron:
+        patterns:
+          - "electron"
+          - "electron-builder"
+          - "electron-updater"
+          - "electron-log"
 
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "06:00"
+      time: "09:00"
+      timezone: "Africa/Nairobi"
     open-pull-requests-limit: 5
     labels:
       - "dependencies"
       - "github-actions"
+      - "security"
+    commit-message:
+      prefix: "ci"
+      include: "scope"

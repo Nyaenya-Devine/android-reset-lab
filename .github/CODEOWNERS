@@ -1,0 +1,20 @@
+# OrbitDesk — Code Owners — Cybersecurity & MSP Expertise
+# Devine Nyaenya — Modern Workplace Operations Lab
+* @Nyaenya-Devine
+
+# Security critical files require owner review
+/SECURITY.md @Nyaenya-Devine
+/THREAT_MODEL.md @Nyaenya-Devine
+/electron.js @Nyaenya-Devine
+/preload.js @Nyaenya-Devine
+/next.config.ts @Nyaenya-Devine
+/.github/workflows/security.yml @Nyaenya-Devine
+/.github/workflows/codeql.yml @Nyaenya-Devine
+
+# Desktop & PWA packaging
+/package.json @Nyaenya-Devine
+/build/ @Nyaenya-Devine
+
+# Core simulation engine — MSP logic
+/src/lib/ @Nyaenya-Devine
+/src/data/ @Nyaenya-Devine
