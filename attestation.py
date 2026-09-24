@@ -1,5 +1,5 @@
 """
-Android Device Attestation Simulation — P4 God Mode
+Android Device Attestation Simulation — P4 security controls
 Simulates Play Integrity API + Hardware-backed Key Attestation
 
 Implements:

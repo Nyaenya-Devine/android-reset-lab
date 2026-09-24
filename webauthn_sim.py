@@ -1,5 +1,5 @@
 """
-WebAuthn / Passkey Simulation — P4 God Mode
+WebAuthn / Passkey Simulation — P4 security controls
 FIDO2 / WebAuthn phishing-resistant MFA simulation
 
 Implements:

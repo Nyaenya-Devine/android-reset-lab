@@ -1,5 +1,5 @@
 """
-Demo P4 Cerberus — God Mode
+Demo P4 Cerberus — advanced controls
 Shows:
 - Merkle transparency log with inclusion/consistency proofs
 - Policy-as-Code deny (viewer, compromised device)
@@ -40,7 +40,7 @@ from tx_signing import create_transaction_payload, sign_transaction, verify_tran
 from dpop import generate_dpop_keypair, create_dpop_proof, verify_dpop_proof
 from cerberus_workflow import cerberus_request_reset, cerberus_approve_reset, cerberus_execute_reset
 
-print("=== P4 Cerberus Demo — God Mode ===\n")
+print("=== P4 Cerberus Demo — advanced controls ===\n")
 
 # Seed
 seed_lab.seed_all()

@@ -1,5 +1,5 @@
 """
-Merkle Transparency Ledger — P4 God Mode
+Merkle Transparency Ledger — P4 security controls
 
 Implements a Certificate Transparency-style (RFC 6962 / RFC 9162) append-only
 Merkle tree audit log with:

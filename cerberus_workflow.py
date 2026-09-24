@@ -1,5 +1,5 @@
 """
-Cerberus Workflow — P4 God Mode
+Cerberus Workflow — P4 security controls
 Zero Trust reset orchestration combining:
 - Policy-as-Code (Cedar-like ABAC)
 - Risk-Adaptive Authentication

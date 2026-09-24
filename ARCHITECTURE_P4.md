@@ -1,8 +1,8 @@
-# P4 Cerberus Architecture — God Mode
+# P4 Cerberus Architecture — advanced controls
 
 > **Simulation-only, no real device touch.** `SIMULATION_MODE=True` enforced by `test_safety.py`. This is a lab that a machine can applaud: Merkle transparency, Cedar policy-as-code, risk-adaptive auth, WebAuthn passkeys, StrongBox attestation, WYSIWYS transaction signing, DPoP.
 
-## Why P4 is not basic
+## Assurance added by P4
 
 Prior versions:
 - **P2**: JSON/SQLite storage abstraction, CSRF, rate limiting, RBAC hardening

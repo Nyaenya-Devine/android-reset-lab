@@ -1,5 +1,5 @@
 """
-Android Reset Lab - Observability (God Mode)
+Android Reset Lab - Observability (advanced controls)
 OpenTelemetry-style tracing + Prometheus metrics + structured logging
 No external deps - stdlib only, with optional OTEL export
 """
@@ -152,7 +152,7 @@ metrics = MetricsRegistry()
 class AttackReplayEngine:
     """
     Replay any audit log entry as attack simulation
-    God Mode feature: proves detection still works on historical attacks
+    Security feature: proves detection still works on historical attacks
     """
     
     def __init__(self, ledger_path: str = "data/audit_log.json"):

@@ -21,7 +21,7 @@ import security_logger
 import threat_detection
 from sanitization_advisor import SanitizationScenario, advise
 
-# God Mode observability (OTEL tracing + Prometheus metrics)
+# Protected observability (OTEL tracing + Prometheus metrics)
 try:
     from observability import tracer as obs_tracer, metrics as obs_metrics, replay_engine as obs_replay
     OBS_ENABLED = True
@@ -528,7 +528,7 @@ def render_dashboard(session, message=""):
     <main class="shell main">{flash}
       <section class="hero"><div class="eyebrow">Simulation control plane</div><h1>Good morning, {html.escape(str(session.get("username", "operator")))}</h1>
       <p>Observe the lab state, review detection signals, and request resets without crossing the four-eyes approval boundary. P4 Cerberus adds Merkle transparency, Cedar policy-as-code, risk-adaptive auth, passkeys, attestation, transaction signing, DPoP.</p></section>
-      <div class="notice warning"><strong>SIMULATION MODE</strong> · This environment performs simulated device-management operations only. P4 = God Mode.</div>
+      <div class="notice warning"><strong>SIMULATION MODE</strong> · This environment performs simulated device-management operations only. P4 controls are enabled.</div>
       <section class="grid stats">{cards}</section>
       {p4_section}
       {safety_section}
@@ -693,7 +693,7 @@ class Handler(BaseHTTPRequestHandler):
             span.set_attribute("http.method", "GET")
             span.set_attribute("http.path", path)
 
-        # God Mode: metrics endpoint (protected)
+        # Advanced controls: metrics endpoint (protected)
         if path == "/metrics":
             session, token = self._current_session()
             if session is None or token is None:
@@ -717,7 +717,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_text(body, "text/plain; version=0.0.4; charset=utf-8")
             return
 
-        # God Mode: observability traces
+        # Advanced controls: observability traces
         if path == "/api/traces":
             session, token = self._current_session()
             if session is None:
@@ -734,7 +734,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_json({"spans": data})
             return
 
-        # God Mode: attack replay
+        # Advanced controls: attack replay
         if path.startswith("/api/replay"):
             session, token = self._current_session()
             if session is None:

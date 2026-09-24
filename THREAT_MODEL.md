@@ -1,4 +1,4 @@
-# THREAT_MODEL.md — P4 Cerberus God Mode
+# THREAT_MODEL.md — P4 Cerberus controls
 
 ## Assets
 - Audit log integrity (evidence) — hash-chained JSONL + optional HMAC-SHA256 + **Merkle transparency log RFC 6962/9162 with inclusion/consistency proofs + checkpoint anchoring (Rekor sim)**

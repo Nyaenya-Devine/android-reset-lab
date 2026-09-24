@@ -1,5 +1,5 @@
 """
-Transaction Signing / WYSIWYS — P4 God Mode
+Transaction Signing / WYSIWYS — P4 security controls
 What You See Is What You Sign for high-impact actions
 
 Implements:

@@ -1,5 +1,5 @@
 """
-Policy Engine — P4 God Mode
+Policy Engine — P4 security controls
 Cedar / OPA-inspired Policy-as-Code with ABAC + RBAC + Risk-Adaptive
 
 Implements:

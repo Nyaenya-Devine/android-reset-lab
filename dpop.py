@@ -1,5 +1,5 @@
 """
-DPoP (Demonstrating Proof-of-Possession) — P4 God Mode
+DPoP (Demonstrating Proof-of-Possession) — P4 security controls
 Binds tokens to key, prevents token theft/replay
 
 Implements RFC 9449 DPoP simplified for simulation:

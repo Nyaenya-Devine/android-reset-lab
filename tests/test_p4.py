@@ -1,4 +1,4 @@
-# tests/test_p4.py — P4 God Mode tests: Merkle, Policy, Risk, WebAuthn, Attestation, TX, DPoP, Cerberus
+# tests/test_p4.py — P4 security controls tests: Merkle, Policy, Risk, WebAuthn, Attestation, TX, DPoP, Cerberus
 import os
 import sys
 import json

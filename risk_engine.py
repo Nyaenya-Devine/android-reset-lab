@@ -1,5 +1,5 @@
 """
-Risk Engine — P4 God Mode
+Risk Engine — P4 security controls
 Adaptive risk scoring for Zero Trust, inspired by BeyondCorp + NIST 800-207
 
 Factors:
