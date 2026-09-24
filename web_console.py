@@ -19,6 +19,7 @@ import device_simulator
 import reset_workflow
 import security_logger
 import threat_detection
+from sanitization_advisor import SanitizationScenario, advise
 
 # God Mode observability (OTEL tracing + Prometheus metrics)
 try:
@@ -448,6 +449,29 @@ def render_dashboard(session, message=""):
       </section>
     """
 
+    safety_examples = [
+        ("Evidence hold", SanitizationScenario("investigation", True, False, True, True, False, "clear")),
+        ("Corporate redeploy", SanitizationScenario("redeploy", True, False, False, True, True, "purge")),
+        ("Removable media", SanitizationScenario("retire", True, True, False, True, True, "purge")),
+        ("Troubleshooting", SanitizationScenario("troubleshoot", True, False, False, True, True, "clear")),
+    ]
+    safety_rows = []
+    for label, scenario in safety_examples:
+        decision = advise(scenario)
+        kind = "good" if decision.outcome in ("SANITIZE", "SIMULATE_RESET") else ("warning" if decision.outcome == "PRESERVE" else "danger")
+        safety_rows.append(
+            f'<div class="rule-item"><span><strong>{html.escape(label)}</strong><br>'
+            f'<span class="muted small">{html.escape(decision.rationale)}</span></span>'
+            f'{_pill(decision.outcome, kind)}</div>'
+        )
+    safety_section = f"""
+      <div class="section-head"><div><div class="eyebrow">Safety decision plane</div><h2>Reset is not sanitization</h2></div><span class="muted small">Intent · custody · assurance · verification</span></div>
+      <section class="card">
+        <p class="muted small">The advisor blocks destructive paths when evidence, removable media, activation lock, or unproven encryption changes the safe outcome.</p>
+        <div class="rule-list">{''.join(safety_rows)}</div>
+      </section>
+    """
+
     audit_section = ""
     can_view_logs, _ = authorization.authorize(
         _session_token_from_session(session), "view_logs"
@@ -507,6 +531,7 @@ def render_dashboard(session, message=""):
       <div class="notice warning"><strong>SIMULATION MODE</strong> · This environment performs simulated device-management operations only. P4 = God Mode.</div>
       <section class="grid stats">{cards}</section>
       {p4_section}
+      {safety_section}
       <section class="grid two-col"><div class="card"><div class="section-head"><div><div class="eyebrow">Detection</div><h2>Signal overview</h2></div><span class="muted small">Current log snapshot</span></div>
         <div class="bars">{''.join(bars)}</div></div>
         <div class="card"><div class="section-head"><div><div class="eyebrow">Policy rules</div><h2>Threat coverage</h2></div></div><div class="rule-list">{''.join(rule_rows)}</div></div>
