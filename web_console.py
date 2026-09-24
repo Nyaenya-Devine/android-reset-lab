@@ -192,6 +192,9 @@ def _document(title, content):
     return (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
+        "<meta name=\"theme-color\" content=\"#08111f\">"
+        "<link rel=\"icon\" type=\"image/png\" sizes=\"192x192\" href=\"/icon-192.png\">"
+        "<link rel=\"apple-touch-icon\" href=\"/icon-512.png\">"
         f"<title>{html.escape(title)}</title><style>{STYLE}</style></head><body>{content}</body></html>"
     )
 
