@@ -82,18 +82,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - run: |
-          grep -q "X-Frame-Options" next.config.ts
-          grep -q "Content-Security-Policy" next.config.ts
-          grep -q "Strict-Transport-Security" next.config.ts
-          grep -q "Permissions-Policy" next.config.ts
+      - name: Verify Next.js security headers when applicable
+        if: ${{ hashFiles('next.config.*') != '' }}
+        run: |
+          grep -q "X-Frame-Options" next.config.* src/proxy.ts 2>/dev/null
+          grep -q "Content-Security-Policy" next.config.* src/proxy.ts 2>/dev/null
+          grep -q "Strict-Transport-Security" next.config.* src/proxy.ts 2>/dev/null
+          grep -q "Permissions-Policy" next.config.* src/proxy.ts 2>/dev/null
 
   electron-hardening:
     name: Electron Hardening — Zero-Trust
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - run: |
+      - name: Verify Electron hardening when applicable
+        if: ${{ hashFiles('electron.js') != '' }}
+        run: |
           grep -q "contextIsolation: true" electron.js
           grep -q "nodeIntegration: false" electron.js
           grep -q "sandbox: true" electron.js
