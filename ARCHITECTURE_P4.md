@@ -154,7 +154,7 @@ See `THREAT_MODEL.md` for full STRIDE. P4 additions:
 
 ## Metrics
 
-- 68 tests green (52 P2/P3 + 16 P4)
+- 75 tests green across workflow, policy, audit and sanitization controls
 - Merkle root hex 64 chars, inclusion proof O(log N), consistency proof O(log N)
 - Policy 10 default, bundle SHA 16 hex, version 1.0.0
 - Risk 8 factors, 0-100 score
