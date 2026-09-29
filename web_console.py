@@ -779,11 +779,15 @@ class Handler(BaseHTTPRequestHandler):
             self._send_html(render_login())
             return
         if session is None:
+            # The public entry point is a login document, not a failed API call.
+            # Return 200 at `/` so browsers, health checks and link previews can
+            # open the lab; protected routes still retain a truthful 401.
+            status = 200 if path == "/" else 401
             if OBS_ENABLED and obs_metrics:
-                obs_metrics.increment("android_reset_lab_requests_total", labels={"path": path, "status": "401"})
+                obs_metrics.increment("android_reset_lab_requests_total", labels={"path": path, "status": str(status)})
             if span:
-                span.set_status("UNAUTHENTICATED"); obs_tracer.end_span(span)
-            self._send_html(render_login("Please sign in to continue."), status=401)
+                span.set_status("OK" if status == 200 else "UNAUTHENTICATED"); obs_tracer.end_span(span)
+            self._send_html(render_login("Please sign in to continue."), status=status)
             return
         session["_token"] = token
         ok, reason = authorization.authorize(token, "view_dashboard")
