@@ -13,7 +13,7 @@ jobs:
   dependency-audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: Node dependency audit
         if: hashFiles('package-lock.json') != ''
         run: npm ci --ignore-scripts && npm audit --audit-level=high
