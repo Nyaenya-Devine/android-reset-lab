@@ -8,7 +8,6 @@ updates:
       time: "09:00"
       timezone: "Africa/Nairobi"
     open-pull-requests-limit: 5
-    labels: ["dependencies", "security", "python"]
     commit-message:
       prefix: "chore(deps)"
 
@@ -20,6 +19,5 @@ updates:
       time: "09:00"
       timezone: "Africa/Nairobi"
     open-pull-requests-limit: 5
-    labels: ["dependencies", "github-actions", "security"]
     commit-message:
       prefix: "ci(deps)"
